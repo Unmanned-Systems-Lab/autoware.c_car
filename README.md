@@ -168,3 +168,14 @@ Fixposition had no GNSS fix and uninitialized fusion. Its zero-valued outputs
 must not be treated as valid localization. The host Ethernet interface also
 requires a sensor-network address; the temporary test address was removed.
 See [SCOUT_PORTING.md](SCOUT_PORTING.md) for provenance and licensing.
+
+## Scout 定位、高程图与全局可通过性
+
+同一 colcon 工作空间支持启动时选择 Fixposition 或 Autoware Universe 定位，并可同时运行全局高程累积和分块 HT 可通过性识别。RViz 默认显示从全局结果裁出的局部视图，可切换全局概览。
+
+源码、ROS 消息包、模型权重和启动配置均在本仓库；系统 ROS 2、CUDA、CuPy、PyTorch 与官方 ZED SDK 的安装要求见 [Scout 启动与构建说明](SCOUT_LOCALIZATION.md)。地图、录包、SQLite 地图缓存和构建产物不随源码提交。
+
+- [启动、显示与验证](SCOUT_LOCALIZATION.md)
+- [高程模块来源与校验](SCOUT_ELEVATION_SOURCES.json)
+- [传感器依赖来源](SCOUT_LOCALIZATION_SOURCES.json)
+- [可通过性模型来源](src/perception/scout_global_traversability/HT_MODEL_SOURCES.json)

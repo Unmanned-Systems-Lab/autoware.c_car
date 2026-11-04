@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "created_utc": "2026-11-04T04:13:53.224974+00:00",
+  "source": {
+    "component": "ht_traversability_ros2",
+    "version": "0.1.0",
+    "license_declaration": "Proprietary research code",
+    "separate_license_file_found": false,
+    "source_install_snapshot": "/mnt/nvme0n1/autoware/HT_Explo/install_ht_model/ht_traversability_ros2",
+    "source_package_xml_sha256": "0fe415509b4f0930b893effc962f941235b387db4e892f387dae7376aefa174e",
+    "note": "Exact installed model/core snapshot; no source Git revision asserted for generated installation."
+  },
+  "copied_files": [
+    {
+      "source": "/mnt/nvme0n1/autoware/HT_Explo/install_ht_model/ht_traversability_ros2/lib/python3.10/site-packages/ht_traversability_ros2/model.py",
+      "path": "scout_global_traversability/vendor_ht/model.py",
+      "sha256": "3057962e50f20ed6962cdb30b32e275f48ef608cb93b86eda517ce582df2fc14"
+    },
+    {
+      "source": "/mnt/nvme0n1/autoware/HT_Explo/install_ht_model/ht_traversability_ros2/lib/python3.10/site-packages/ht_traversability_ros2/core.py",
+      "path": "scout_global_traversability/vendor_ht/core.py",
+      "sha256": "7acbad544f75a05f6769ad8b6503508d633f2d3e5d0e71d9c1bdcfe19645c197"
+    }
+  ],
+  "checkpoint": {
+    "source": "/mnt/nvme0n1/autoware/HT_Explo/install_ht_model/ht_traversability_ros2/share/ht_traversability_ros2/models/student_best_epoch_weights.pth",
+    "path": "models/student_best_epoch_weights.pth",
+    "sha256": "0a79b865d012aa633fbb9913fc4031908dfe188ec9e161ef5a3fbb34a3f8c4d4",
+    "bytes": 1278696
+  },
+  "interface": {
+    "input_axes": "canonical world rows +Y, columns +X",
+    "model_axes": "GridMap rows -X, columns -Y",
+    "channel_semantics": "raw channels 0..7; physical directions uncalibrated",
+    "front_reference_offset_applied": false,
+    "resolution_m": 0.04,
+    "receptive_field_cells": 51,
+    "stride_cells": 1,
+    "halo_cells": 25,
+    "input_for_128_core": [
+      178,
+      178
+    ],
+    "probability": "softmax over two classes, class 1",
+    "model_gradient_std_m": 0.115837
+  },
+  "adapter": {
+    "finite_initial_prior": "evaluated by the neural model without an observation-count override",
+    "valid": "original center finite and original finite RF support fraction >= min_valid_ratio",
+    "nan_fill": "nearest finite height for numerical inference only; empty inputs return invalid NaN probabilities",
+    "probabilities_at_invalid_cells": "raw network values; caller must mask with valid",
+    "quality": "observation_count and variance are separate caller-owned quality layers",
+    "source_sha256": "8f3c7c8c094433c75e5ba4e2c88ce34a241fa2b295fc306bea54dd8a2f32f022",
+    "test_sha256": "91cf0921b678378d1b2db6704dba22b20ec804304ceb4c942768adb6c43e8d53"
+  },
+  "runtime_dependencies": [
+    "numpy",
+    "scipy",
+    "PyTorch matching Jetson CUDA"
+  ],
+  "validation": {
+    "adapter_tests": "10 passed, including real-checkpoint CPU constant-height translation",
+    "tests_log": "validation/global_traversability/ht_adapter_tests_20261104.log",
+    "cuda_benchmark_default_tf32": "validation/global_traversability/ht_adapter_benchmark_20261104.json",
+    "cuda_benchmark_fp32": "validation/global_traversability/ht_adapter_benchmark_fp32_20261104.json",
+    "recommended_node_precision": "torch.backends.cudnn.allow_tf32=False before constructing predictor; adapter does not mutate global flags",
+    "initial_tiles_per_second": 2,
+    "observed_runtime": {
+      "device": "Orin",
+      "torch": "2.8.0",
+      "cuda": "12.6"
+    }
+  }
+}

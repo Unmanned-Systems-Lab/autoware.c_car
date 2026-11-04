@@ -24,6 +24,7 @@ ScoutBaseRos::ScoutBaseRos(std::string node_name)
   this->declare_parameter("is_scout_mini", false);
   this->declare_parameter("is_omni_wheel", false);
   this->declare_parameter("auto_reconnect", true);
+  this->declare_parameter("read_only", false);
 
   this->declare_parameter("simulated_robot", false);
   this->declare_parameter("control_rate", 50);
@@ -41,6 +42,7 @@ void ScoutBaseRos::LoadParameters() {
   this->get_parameter<bool>("is_scout_mini", is_scout_mini_);
   this->get_parameter<bool>("is_omni_wheel", is_omni_wheel_);
   this->get_parameter<bool>("auto_reconnect", auto_reconnect_);
+  this->get_parameter<bool>("read_only", read_only_);
 
   this->get_parameter<bool>("simulated_robot", simulated_robot_);
   this->get_parameter<int>("control_rate", sim_control_rate_);
@@ -58,6 +60,8 @@ void ScoutBaseRos::LoadParameters() {
                      "- is omni wheel: " << std::boolalpha << is_omni_wheel_);
   RCLCPP_INFO_STREAM(this->get_logger(),
                      "- auto reconnect: " << std::boolalpha << auto_reconnect_);
+  RCLCPP_INFO_STREAM(this->get_logger(),
+                     "- read only: " << std::boolalpha << read_only_);
 
   RCLCPP_INFO_STREAM(
       this->get_logger(),
@@ -144,7 +148,7 @@ void ScoutBaseRos::Run() {
     // connect to robot and setup ROS subscription
     if (port_name_.find("can") != std::string::npos) {
       if (robot_->Connect(port_name_)) {
-        robot_->EnableCommandedMode();
+        if (!read_only_) robot_->EnableCommandedMode();
         RCLCPP_INFO_STREAM(this->get_logger(),
                            "Using CAN bus to talk with the robot");
       } else {
@@ -159,14 +163,14 @@ void ScoutBaseRos::Run() {
     }
 
     // publish robot state at 50Hz while listening to twist commands
-    messenger->SetupSubscription();
+    messenger->SetupSubscription(read_only_);
     AgxControlMode robot_control;
     keep_running_ = true;
     rclcpp::Rate rate(50);
     while (keep_running_) {
       messenger->PublishStateToROS();
       robot_control = robot_->GetRobotState().system_state.control_mode;
-      if (auto_reconnect_ && robot_control == CONTROL_MODE_STANDBY) {
+      if (!read_only_ && auto_reconnect_ && robot_control == CONTROL_MODE_STANDBY) {
         robot_->EnableCommandedMode();
       }
       rclcpp::spin_some(shared_from_this());
@@ -185,7 +189,7 @@ void ScoutBaseRos::Run() {
     // connect to robot and setup ROS subscription
     if (port_name_.find("can") != std::string::npos) {
       if (omni_robot_->Connect(port_name_)) {
-        omni_robot_->EnableCommandedMode();
+        if (!read_only_) omni_robot_->EnableCommandedMode();
         RCLCPP_INFO_STREAM(this->get_logger(),
                            "Using CAN bus to talk with the robot");
       } else {
@@ -200,7 +204,7 @@ void ScoutBaseRos::Run() {
     }
 
     // publish robot state at 50Hz while listening to twist commands
-    messenger->SetupSubscription();
+    messenger->SetupSubscription(read_only_);
     rclcpp::Rate rate(50);
     keep_running_ = true;
     while (keep_running_) {

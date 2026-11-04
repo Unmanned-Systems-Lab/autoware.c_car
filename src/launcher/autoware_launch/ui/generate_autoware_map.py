@@ -22,6 +22,7 @@ from typing import Iterable
 
 import requests
 import yaml
+from autoware_adapi_v1_msgs.msg import LocalizationInitializationState
 from autoware_adapi_v1_msgs.msg import OperationModeState
 from autoware_adapi_v1_msgs.msg import RouteState
 from autoware_adapi_v1_msgs.srv import ChangeOperationMode
@@ -51,6 +52,7 @@ from rclpy.qos import QoSProfile
 from rclpy.qos import ReliabilityPolicy
 from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import NavSatFix
+from sensor_msgs.msg import PointCloud2
 from std_msgs.msg import ColorRGBA
 from tf2_msgs.msg import TFMessage
 from visualization_msgs.msg import Marker
@@ -129,6 +131,14 @@ FIXPOSITION_LLH_TOPIC = "/fixposition/odometry_llh"
 FIXPOSITION_STATUS_TOPIC = "/fixposition/fpa/odomstatus"
 FIXPOSITION_STATIC_TF_TOPIC = "/fixposition/tf_static"
 FIXPOSITION_DATA_TIMEOUT_S = 2.0
+SCOUT_LOCALIZATION_MODE = os.environ.get("SCOUT_LOCALIZATION_MODE", "fixposition").strip().lower()
+if SCOUT_LOCALIZATION_MODE not in {"fixposition", "universe"}:
+    raise RuntimeError("SCOUT_LOCALIZATION_MODE must be fixposition or universe")
+LOCALIZATION_INITIALIZATION_STATE_TOPIC = "/localization/initialization_state"
+UNIVERSE_NDT_POSE_TOPIC = "/localization/pose_estimator/pose_with_covariance"
+UNIVERSE_LOCALIZATION_TIMEOUT_S = 2.0
+UNIVERSE_LOCALIZATION_FUTURE_TOLERANCE_S = 0.1
+UNIVERSE_MIN_MAP_POINTS = 1000
 SCOUT_UI_ALLOW_VEHICLE_ACTIONS = os.environ.get("SCOUT_UI_ALLOW_VEHICLE_ACTIONS", "0") == "1"
 MAP_SWITCH_LOCK = threading.Lock()
 MAP_SWITCH_FAILED = False
@@ -585,6 +595,11 @@ class AutowareRuntimeClient:
         self._fixposition_status: FpaOdomstatus | None = None
         self._fixposition_status_received_monotonic: float | None = None
         self._fixposition_enu0_ecef: tuple[float, float, float] | None = None
+        self._localization_init_state = None
+        self._ndt_pose = None
+        self._ndt_pose_received_monotonic = None
+        self._pointcloud_map_signature = None
+        self._localization_state_subscriptions = []
         self._initialized = False
 
     def _ensure_ready(self) -> None:
@@ -618,6 +633,11 @@ class AutowareRuntimeClient:
             self._fixposition_status = None
             self._fixposition_status_received_monotonic = None
             self._fixposition_enu0_ecef = None
+            self._localization_init_state = None
+            self._ndt_pose = None
+            self._ndt_pose_received_monotonic = None
+            self._pointcloud_map_signature = None
+            self._localization_state_subscriptions = []
             self._initialized = False
 
             if not rclpy.ok():
@@ -686,6 +706,17 @@ class AutowareRuntimeClient:
                 self._on_fixposition_static_tf,
                 status_qos,
             )
+            self._localization_state_subscriptions = [
+                self._node.create_subscription(
+                    LocalizationInitializationState, LOCALIZATION_INITIALIZATION_STATE_TOPIC,
+                    self._on_localization_init_state, status_qos),
+                self._node.create_subscription(
+                    PoseWithCovarianceStamped, UNIVERSE_NDT_POSE_TOPIC,
+                    self._on_ndt_pose, qos_profile_sensor_data),
+                self._node.create_subscription(
+                    PointCloud2, AUTOWARE_POINTCLOUD_MAP_TOPIC,
+                    self._on_pointcloud_map, status_qos),
+            ]
             self._initialized = True
 
     def _on_route_state(self, message: RouteState) -> None:
@@ -1000,7 +1031,69 @@ class AutowareRuntimeClient:
             source="current_vehicle_gps_and_local_pose",
         )
 
-    def vehicle_state_snapshot(self) -> dict[str, Any]:
+
+    def _on_localization_init_state(self, message):
+        with self._state_lock:
+            self._localization_init_state = int(message.state)
+
+    def _on_ndt_pose(self, message):
+        with self._state_lock:
+            self._ndt_pose = message
+            self._ndt_pose_received_monotonic = time.monotonic()
+
+    def _on_pointcloud_map(self, message):
+        # Keep metadata only, not the potentially very large point-cloud payload.
+        with self._state_lock:
+            self._pointcloud_map_signature = (
+                str(message.header.frame_id).lstrip('/'), int(message.width) * int(message.height))
+
+    def _universe_kinematic_is_valid(self, message, received_monotonic):
+        now_ns = self._node.get_clock().now().nanoseconds if self._node else time.time_ns()
+        return universe_pose_is_fresh(message, received_monotonic, now_ns, odometry=True)
+
+    def localization_snapshot(self):
+        self._ensure_ready()
+        with self._client_lock:
+            self._spin_locked(0.02)
+        with self._state_lock:
+            init_state = self._localization_init_state
+            odom, odom_received = self._kinematic_state, self._kinematic_state_received_monotonic
+            ndt, ndt_received = self._ndt_pose, self._ndt_pose_received_monotonic
+            loaded_map = self._pointcloud_map_signature
+            fix, fix_received = self._fixposition_status, self._fixposition_status_received_monotonic
+        if SCOUT_LOCALIZATION_MODE == "fixposition":
+            ready = self._fixposition_ready(fix, fix_received) and self._is_recent(odom_received)
+            return {"backend": "fixposition", "ready": ready, "initialized": ready,
+                    "initialization_state": init_state, "kinematic_recent": self._is_recent(odom_received)}
+        now_ns = self._node.get_clock().now().nanoseconds if self._node else time.time_ns()
+        return universe_localization_readiness(
+            init_state, odom, odom_received, ndt, ndt_received, loaded_map, now_ns)
+
+    def vehicle_state_snapshot(self):
+        result = self._vehicle_state_snapshot()
+        result["localization_backend"] = SCOUT_LOCALIZATION_MODE
+        result["localization"] = self.localization_snapshot()
+        if SCOUT_LOCALIZATION_MODE == "universe":
+            # Raw Fixposition GPS is a diagnostic only; the selected position is NDT/EKF.
+            result["pose"]["position"].update(latitude=None, longitude=None, altitude=None)
+            result.update(geo_available=False, geo_source=None,
+                          geo_error="Universe local pose requires a surveyed map origin for geographic display")
+            if not self._universe_kinematic_is_valid(
+                    self._kinematic_state, self._kinematic_state_received_monotonic):
+                result.update(received=False, source_topic=AUTOWARE_LOCALIZATION_KINEMATIC_STATE_TOPIC,
+                              age_ms=None, error="Universe localization has no fresh valid map/base_link odometry")
+            elif result.get("runtime_map", {}).get("status") == "ok":
+                origin = result["runtime_map"]["origin"]
+                _, inverse = build_local_transformers(GeoPoint(**origin))
+                position = result["pose"]["position"]
+                lon, lat = inverse.transform(position["x"], position["y"])
+                if math.isfinite(lon) and math.isfinite(lat):
+                    position.update(latitude=lat, longitude=lon,
+                                    altitude=origin["altitude"] + position["z"])
+                    result.update(geo_available=True, geo_source="universe_map_projection", geo_error=None)
+        return result
+
+    def _vehicle_state_snapshot(self) -> dict[str, Any]:
         self._ensure_ready()
 
         with self._client_lock:
@@ -1017,7 +1110,11 @@ class AutowareRuntimeClient:
         fixposition_ready = self._fixposition_ready(
             fixposition_status, fixposition_status_received_monotonic
         )
-        if not fixposition_ready or not self._is_recent(received_monotonic):
+        if (
+            not self._universe_kinematic_is_valid(kinematic_state, received_monotonic)
+            if SCOUT_LOCALIZATION_MODE == "universe"
+            else not fixposition_ready or not self._is_recent(received_monotonic)
+        ):
             kinematic_state = None
         raw_geo_position = self._raw_gps_to_geo_point(raw_gps, raw_gps_received_monotonic)
         raw_gps_age_ms = None
@@ -3152,6 +3249,142 @@ def reload_autoware_pointcloud_map(output_dir: Path) -> dict[str, Any]:
     }
 
 
+
+def universe_pose_is_fresh(message, received_monotonic, now_ns, *, odometry=False):
+    if message is None or received_monotonic is None:
+        return False
+    if not 0.0 <= time.monotonic() - received_monotonic < UNIVERSE_LOCALIZATION_TIMEOUT_S:
+        return False
+    if str(message.header.frame_id).lstrip('/') != "map":
+        return False
+    if odometry and str(message.child_frame_id).lstrip('/') != "base_link":
+        return False
+    stamp_ns = int(message.header.stamp.sec) * 1_000_000_000 + int(message.header.stamp.nanosec)
+    age = (now_ns - stamp_ns) / 1e9
+    if stamp_ns <= 0 or not -UNIVERSE_LOCALIZATION_FUTURE_TOLERANCE_S <= age < UNIVERSE_LOCALIZATION_TIMEOUT_S:
+        return False
+    pose = message.pose.pose
+    values = [pose.position.x, pose.position.y, pose.position.z,
+              pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w]
+    if not all(math.isfinite(v) for v in values):
+        return False
+    if abs(sum(v * v for v in values[3:]) - 1.0) > 0.02:
+        return False
+    if odometry:
+        twist = message.twist.twist
+        if not all(math.isfinite(v) for v in [twist.linear.x, twist.linear.y, twist.linear.z,
+                                              twist.angular.x, twist.angular.y, twist.angular.z]):
+            return False
+    return True
+
+
+@lru_cache(maxsize=16)
+def _pcd_point_count(path_string, modified_ns, file_size):
+    # The cache key tracks file changes; a filename alone must not validate replaced contents.
+    del modified_ns
+    path = Path(path_string)
+    header = {}
+    with path.open('rb') as stream:
+        for _ in range(64):
+            line = stream.readline(8192)
+            if not line or len(line) >= 8192:
+                raise MapGenerationError("invalid PCD header")
+            text = line.decode('ascii').strip()
+            if text and not text.startswith('#'):
+                key, *values = text.split()
+                header[key.upper()] = values
+            if text.startswith('DATA '):
+                offset = stream.tell()
+                break
+        else:
+            raise MapGenerationError("PCD DATA header not found")
+    fields = header.get('FIELDS', [])
+    if not {'x', 'y', 'z'}.issubset(fields):
+        raise MapGenerationError("NDT pointcloud map must contain x/y/z fields")
+    count = int(header['POINTS'][0])
+    if count < UNIVERSE_MIN_MAP_POINTS:
+        raise MapGenerationError("NDT requires a real 3D pointcloud map; sparse UI placeholder maps are not supported")
+    if int(header['WIDTH'][0]) * int(header['HEIGHT'][0]) != count:
+        raise MapGenerationError("PCD point count disagrees with dimensions")
+    mode = header['DATA'][0]
+    if mode == 'binary':
+        sizes = [int(v) for v in header['SIZE']]
+        counts = [int(v) for v in header.get('COUNT', ['1'] * len(fields))]
+        if len(sizes) != len(fields) or len(counts) != len(fields):
+            raise MapGenerationError("invalid PCD field sizes")
+        if file_size - offset < count * sum(a * b for a, b in zip(sizes, counts)):
+            raise MapGenerationError("NDT pointcloud map is truncated")
+    elif mode == 'ascii':
+        with path.open('rb') as stream:
+            stream.seek(offset)
+            rows = sum(1 for line in stream if line.strip() and not line.startswith(b'#'))
+        if rows != count:
+            raise MapGenerationError("ASCII NDT pointcloud map is truncated or has a wrong point count")
+    elif mode == 'binary_compressed':
+        import struct
+        with path.open('rb') as stream:
+            stream.seek(offset)
+            packed = stream.read(8)
+        if len(packed) != 8 or file_size - offset < 8 + struct.unpack('<II', packed)[0]:
+            raise MapGenerationError("compressed NDT pointcloud map is truncated")
+    else:
+        raise MapGenerationError("unsupported NDT pointcloud map encoding")
+    return count
+
+
+def universe_fixed_map_status():
+    active = os.environ.get("AUTOWARE_UI_RUNTIME_MAP_DIR", "").strip()
+    if not active:
+        raise MapGenerationError("Universe UI requires the fixed map directory used at launch")
+    directory = Path(active).expanduser().resolve()
+    filename = os.environ.get("AUTOWARE_UI_POINTCLOUD_MAP_FILE", "pointcloud_map.pcd")
+    relative = Path(filename)
+    path = (directory / relative).resolve()
+    if relative.is_absolute() or not path.is_relative_to(directory) or not path.is_file():
+        raise MapGenerationError("Universe pointcloud map is missing or outside the launched map directory")
+    stat = path.stat()
+    return {"path": str(path), "directory": str(directory),
+            "points": _pcd_point_count(str(path), stat.st_mtime_ns, stat.st_size)}
+
+
+def universe_localization_readiness(init_state, odom, odom_received, ndt, ndt_received, loaded_map, now_ns):
+    errors = []
+    initialized = init_state == LocalizationInitializationState.INITIALIZED
+    kinematic_recent = universe_pose_is_fresh(odom, odom_received, now_ns, odometry=True)
+    ndt_recent = universe_pose_is_fresh(ndt, ndt_received, now_ns)
+    map_status = None
+    try:
+        map_status = universe_fixed_map_status()
+    except (MapGenerationError, OSError, ValueError, KeyError, UnicodeError) as exc:
+        errors.append(str(exc))
+    map_loaded = map_status is not None and loaded_map == ("map", map_status["points"])
+    if not map_loaded:
+        errors.append("the fixed pointcloud map has not been loaded on /map/pointcloud_map")
+    if not initialized:
+        errors.append("Universe localization is not initialized")
+    if not kinematic_recent:
+        errors.append("Universe map/base_link odometry is unavailable, invalid, or stale")
+    if not ndt_recent:
+        errors.append("Universe NDT pose is unavailable, invalid, or stale")
+    return {"backend": "universe", "ready": not errors, "initialized": initialized,
+            "initialization_state": init_state, "kinematic_recent": kinematic_recent,
+            "ndt_recent": ndt_recent, "map_valid": map_status is not None,
+            "map_loaded": map_loaded, "map": map_status,
+            "error": "; ".join(errors) if errors else None}
+
+
+def require_active_localization(context, *, map_label):
+    if SCOUT_LOCALIZATION_MODE == "fixposition":
+        require_live_fp_enu0_alignment(context.origin, map_label=map_label)
+        return
+    snapshot = AUTOWARE_RUNTIME_CLIENT.localization_snapshot()
+    if not snapshot.get("ready"):
+        raise MapGenerationError(snapshot.get("error") or "Universe localization is not ready")
+    fixed = universe_fixed_map_status()
+    if context.output_dir.resolve() != Path(fixed["directory"]):
+        raise MapGenerationError("route map does not match the fixed Universe localization map")
+
+
 def require_live_fp_enu0_alignment(origin: GeoPoint, *, map_label: str) -> None:
     live_origin = AUTOWARE_RUNTIME_CLIENT.current_fp_enu0_origin()
     forward, _ = build_local_transformers(live_origin)
@@ -3199,6 +3432,10 @@ def prepare_runtime_map_switch(new_origin: GeoPoint) -> None:
 
 
 def switch_autoware_map(output_dir: Path) -> dict[str, Any]:
+    if SCOUT_LOCALIZATION_MODE == "universe":
+        raise MapGenerationError(
+            "Universe uses a fixed surveyed 3D pointcloud/lanelet map; restart with the aligned map "
+            "instead of generating or hot-switching a map")
     context = load_runtime_map_context({"runtime_map_dir": str(output_dir)})
     for filename in ("lanelet2_map.osm", "pointcloud_map.pcd", "pointcloud_map_metadata.yaml"):
         if not (output_dir / filename).is_file():
@@ -3284,6 +3521,10 @@ def list_generated_maps() -> dict[str, Any]:
 
 
 def activate_generated_map_from_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    if SCOUT_LOCALIZATION_MODE == "universe":
+        raise MapGenerationError(
+            "Universe uses a fixed surveyed 3D pointcloud/lanelet map; restart with the aligned map "
+            "instead of generating or hot-switching a map")
     output_dir = generated_map_dir(payload.get("map_name"))
     active_map_dir = os.environ.get("AUTOWARE_UI_RUNTIME_MAP_DIR", "").strip()
     if active_map_dir and output_dir == Path(active_map_dir).resolve():
@@ -3305,6 +3546,10 @@ def activate_generated_map_from_payload(payload: dict[str, Any]) -> dict[str, An
 
 
 def generate_map_from_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    if SCOUT_LOCALIZATION_MODE == "universe":
+        raise MapGenerationError(
+            "Universe uses a fixed surveyed 3D pointcloud/lanelet map; restart with the aligned map "
+            "instead of generating or hot-switching a map")
     requested_map_name = sanitize_map_name(str(payload.get("map_name", DEFAULT_MAP_NAME)))
     reload_autoware = parse_bool(payload, "reload_autoware", default=False)
     publish_overlay = parse_bool(payload, "publish_satellite_overlay", default=False)
@@ -3506,7 +3751,17 @@ def generate_map_from_payload(payload: dict[str, Any]) -> dict[str, Any]:
 def get_autoware_status() -> dict[str, Any]:
     result = AUTOWARE_RUNTIME_CLIENT.snapshot()
     result["ui_actions_enabled"] = SCOUT_UI_ALLOW_VEHICLE_ACTIONS
+    active_map_dir = os.environ.get("AUTOWARE_UI_RUNTIME_MAP_DIR", "").strip()
+    result["runtime_profile"] = {
+        "localization_backend": SCOUT_LOCALIZATION_MODE,
+        "runtime_map_dir": str(Path(active_map_dir).expanduser().resolve()) if active_map_dir else "",
+        "pointcloud_map_file": os.environ.get("AUTOWARE_UI_POINTCLOUD_MAP_FILE", "pointcloud_map.pcd"),
+        "ui_actions_enabled": SCOUT_UI_ALLOW_VEHICLE_ACTIONS,
+    }
     result["map_switch_failed"] = MAP_SWITCH_FAILED
+    result["localization_backend"] = SCOUT_LOCALIZATION_MODE
+    result["localization"] = AUTOWARE_RUNTIME_CLIENT.localization_snapshot()
+    result["map_switch_supported"] = SCOUT_LOCALIZATION_MODE == "fixposition"
     try:
         context = load_runtime_map_context({})
         result["runtime_map"] = runtime_map_context_to_dict(context)
@@ -3529,7 +3784,7 @@ def set_route_from_payload(payload: dict[str, Any]) -> dict[str, Any]:
     active_map_dir = os.environ.get("AUTOWARE_UI_RUNTIME_MAP_DIR", "").strip()
     if active_map_dir and context.output_dir != Path(active_map_dir).expanduser().resolve():
         raise MapGenerationError("route map does not match the map currently loaded by Autoware")
-    require_live_fp_enu0_alignment(context.origin, map_label="active map")
+    require_active_localization(context, map_label="active map")
     path_points = parse_path_points(payload, context.elevation_m, min_points=2)
     allow_goal_modification = parse_bool(
         payload, "allow_goal_modification", default=False
@@ -3746,8 +4001,8 @@ class MapRequestHandler(SimpleHTTPRequestHandler):
                 with MAP_SWITCH_LOCK:
                     if MAP_SWITCH_FAILED:
                         raise MapGenerationError("map switch failed; autonomous mode is blocked")
-                    require_live_fp_enu0_alignment(
-                        load_runtime_map_context({}).origin, map_label="active map"
+                    require_active_localization(
+                        load_runtime_map_context({}), map_label="active map"
                     )
                     result = change_to_autonomous_from_payload(payload)
             elif request_path == "/change_to_stop":
@@ -3756,8 +4011,8 @@ class MapRequestHandler(SimpleHTTPRequestHandler):
                 with MAP_SWITCH_LOCK:
                     if MAP_SWITCH_FAILED:
                         raise MapGenerationError("map switch failed; Autoware control is blocked")
-                    require_live_fp_enu0_alignment(
-                        load_runtime_map_context({}).origin, map_label="active map"
+                    require_active_localization(
+                        load_runtime_map_context({}), map_label="active map"
                     )
                     result = enable_autoware_control_from_payload(payload)
             elif request_path == "/disable_autoware_control":

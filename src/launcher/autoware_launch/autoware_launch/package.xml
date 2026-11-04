@@ -40,4 +40,8 @@
     <build_type>ament_cmake</build_type>
     <autoware_guideline_check file="test/autoware_guideline_check.yaml"/>
   </export>
+  <exec_depend>scout_localization_support</exec_depend>
+  <exec_depend>elevation_mapping_cupy</exec_depend>
+  <exec_depend>grid_map_rviz_plugin</exec_depend>
+  <exec_depend>scout_global_traversability</exec_depend>
 </package>

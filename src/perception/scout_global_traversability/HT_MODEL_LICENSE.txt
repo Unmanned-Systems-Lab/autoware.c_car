@@ -1,0 +1,16 @@
+HT model implementation, preprocessing utilities, and student checkpoint
+
+The original ht_traversability_ros2 package version 0.1.0 declares:
+    Proprietary research code
+
+The source package supplies no separate LICENSE file. This notice preserves the
+original declaration and provenance; it does not change or add license grants.
+The surrounding Scout adapter's license does not replace the model's declaration.
+
+Copied components:
+  scout_global_traversability/vendor_ht/model.py
+  scout_global_traversability/vendor_ht/core.py
+  models/student_best_epoch_weights.pth
+
+Source: HT_Explo/install_ht_model/ht_traversability_ros2 on the Scout SSD.
+See HT_MODEL_SOURCES.json for exact file hashes, source metadata and conventions.

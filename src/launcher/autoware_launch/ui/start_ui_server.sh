@@ -85,6 +85,53 @@ server_is_healthy() {
   curl -fsS --max-time 1 "$(healthcheck_url)" >/dev/null 2>&1
 }
 
+require_matching_server_profile() {
+  local status_url="http://$(browser_host):${PORT}/autoware_status"
+  python3 - "${status_url}" <<'PY_PROFILE'
+import json
+import os
+from pathlib import Path
+import sys
+import urllib.error
+import urllib.request
+
+
+def reject(reason):
+    print("Existing UI cannot be reused: " + reason, file=sys.stderr)
+    print("Please stop the old UI on this port, then restart with the requested localization profile.", file=sys.stderr)
+    raise SystemExit(1)
+
+
+backend = os.environ.get("SCOUT_LOCALIZATION_MODE", "fixposition").strip().lower()
+if backend not in {"fixposition", "universe"}:
+    reject("SCOUT_LOCALIZATION_MODE must be fixposition or universe")
+raw_map_dir = os.environ.get("AUTOWARE_UI_RUNTIME_MAP_DIR", "").strip()
+expected = {
+    "localization_backend": backend,
+    "runtime_map_dir": str(Path(raw_map_dir).expanduser().resolve()) if raw_map_dir else "",
+    "pointcloud_map_file": os.environ.get("AUTOWARE_UI_POINTCLOUD_MAP_FILE", "pointcloud_map.pcd"),
+    "ui_actions_enabled": os.environ.get("SCOUT_UI_ALLOW_VEHICLE_ACTIONS", "0") == "1",
+}
+try:
+    with urllib.request.urlopen(sys.argv[1], timeout=3.0) as response:
+        status = json.load(response)
+except (OSError, ValueError, urllib.error.URLError) as error:
+    reject("cannot read /autoware_status: " + str(error))
+if not isinstance(status, dict) or not isinstance(status.get("runtime_profile"), dict):
+    reject("server does not report runtime_profile; restart it with the updated UI")
+actual = status["runtime_profile"]
+for field, value in expected.items():
+    if field not in actual or type(actual[field]) is not type(value) or actual[field] != value:
+        reject(field + " mismatch (requested " + json.dumps(value, ensure_ascii=False)
+               + ", existing " + json.dumps(actual.get(field), ensure_ascii=False) + ")")
+if status.get("localization_backend") != backend:
+    reject("top-level localization_backend does not match the requested backend")
+if type(status.get("ui_actions_enabled")) is not bool or status["ui_actions_enabled"] != expected["ui_actions_enabled"]:
+    reject("top-level UI action permissions do not match the requested permissions")
+print("Existing UI profile matches: " + json.dumps(expected, ensure_ascii=False))
+PY_PROFILE
+}
+
 listening_pids_on_port() {
   ss -ltnp "( sport = :${PORT} )" 2>/dev/null \
     | grep -o 'pid=[0-9]\+' \
@@ -172,6 +219,7 @@ cleanup() {
 }
 
 if server_is_healthy; then
+  require_matching_server_profile || exit 1
   echo "UI server already running from ${UI_SCRIPT}. Reusing the existing process."
   open_index_page
   exit 0
@@ -180,6 +228,7 @@ fi
 stop_stale_ui_server_on_port
 
 if server_is_healthy; then
+  require_matching_server_profile || exit 1
   echo "UI server already running from ${UI_SCRIPT}. Reusing the existing process."
   open_index_page
   exit 0
@@ -214,6 +263,7 @@ python3 "${UI_SCRIPT}" --host "${HOST}" --port "${PORT}" &
 SERVER_PID=$!
 
 if wait_for_server; then
+  require_matching_server_profile || exit 1
   open_index_page
 fi
 

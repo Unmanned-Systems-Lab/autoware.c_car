@@ -31,6 +31,10 @@
     var defaultUiServerPort = parseInt(window.location.port, 10) || 8092;
     var defaultRemoteWorkspaceRoot = '/mnt/nvme0n1/autoware/autoware.scout';
     var uiActionsEnabled = false;
+    var localizationBackend = 'fixposition';
+    var localizationReady = false;
+    var localizationError = '';
+    var mapSwitchSupported = true;
     var mapSwitchInProgress = false;
     var googleMapsApiKey = 'AIzaSyAP6mOp2PxMDAl0nh-fmKEyWYZ1qdpzf7U';
     var googleMapsScriptRequested = false;
@@ -546,6 +550,8 @@
           geoStatusText = data.fixposition_ready
             ? '地理位置: Fixposition GPS'
             : '地理位置: Fixposition GPS，融合未就绪';
+        } else if (geoSource === 'universe_map_projection') {
+          geoStatusText = '地理位置: Universe / 已加载地图投影';
         } else {
           geoStatusText = '地理位置: 已可视化';
         }
@@ -553,7 +559,8 @@
         geoStatusText = '地理位置: ' + data.geo_error;
       }
 
-      document.getElementById('position-source').textContent = '定位源: ' + sourceText;
+      document.getElementById('position-source').textContent = '定位源: ' +
+        (data && data.localization_backend === 'universe' ? 'Universe (NDT / IMU / 轮速) | ' : '') + sourceText;
       document.getElementById('position-age').textContent =
         '更新时间: ' + (received && data.age_ms !== null && data.age_ms !== undefined ? data.age_ms + ' ms' : 'N/A');
       document.getElementById('position-geo-status').textContent = geoStatusText;
@@ -753,6 +760,10 @@
     }
 
     function sendRouteToAutoware() {
+      if (localizationBackend === 'universe' && !localizationReady) {
+        setRuntimeStatus('Universe 定位未就绪: ' + localizationError, true);
+        return;
+      }
       if (pathPoints.length < 2) {
         alert('请至少设置两个路径点');
         return;
@@ -866,6 +877,10 @@
     }
 
     function enterAutonomousMode() {
+      if (localizationBackend === 'universe' && !localizationReady) {
+        setRuntimeStatus('Universe 定位未就绪: ' + localizationError, true);
+        return;
+      }
       setRuntimeStatus('正在切换到 AUTONOMOUS，并启用 Autoware control...', false);
       apiRequest('/change_to_autonomous', {})
         .then(function(modeResult) {
@@ -914,6 +929,10 @@
     }
 
     function generateAutowareMap() {
+      if (!mapSwitchSupported) {
+        setMapStatus('Universe 使用固定的已对齐三维点云地图；换图后请重启 Autoware。', true);
+        return;
+      }
       if (pathPoints.length < 2) {
         alert('请至少设置两个路径点');
         return;
@@ -952,7 +971,7 @@
         })
         .finally(function() {
           mapSwitchInProgress = false;
-          generateButton.disabled = !uiActionsEnabled;
+          setVehicleActionsEnabled(uiActionsEnabled);
           refreshAutowareStatus();
         });
     }
@@ -966,7 +985,7 @@
           var option = document.createElement('option');
           option.value = item.map_name;
           option.textContent = item.map_name + (item.active ? ' (当前)' : '');
-          option.disabled = !item.compatible_with_fp_enu0;
+          option.disabled = !mapSwitchSupported || !item.compatible_with_fp_enu0;
           selector.appendChild(option);
         });
         var preferred = Array.from(selector.options).find(function(option) {
@@ -979,13 +998,17 @@
         } else {
           selector.selectedIndex = -1;
         }
-        document.getElementById('activate-map-button').disabled = !uiActionsEnabled || mapSwitchInProgress || !preferred;
+        document.getElementById('activate-map-button').disabled = !uiActionsEnabled || !mapSwitchSupported || mapSwitchInProgress || !preferred;
       }).catch(function(error) {
         setMapStatus('读取已有地图失败: ' + error.message + '。若刚更新程序，请先重启一次 Autoware 和 UI。', true);
       });
     }
 
     function activateGeneratedMap() {
+      if (!mapSwitchSupported) {
+        setMapStatus('Universe 使用固定的已对齐三维点云地图；换图后请重启 Autoware。', true);
+        return;
+      }
       var selector = document.getElementById('generated-map-select');
       var button = document.getElementById('activate-map-button');
       if (!selector.value || button.disabled) {
@@ -1012,12 +1035,20 @@
     }
 
     function setVehicleActionsEnabled(enabled) {
+      var wasEnabled = uiActionsEnabled;
       uiActionsEnabled = enabled;
-      ['send-route-button', 'generate-autoware-map-button', 'enter-autonomous-button'].forEach(function(id) {
-        document.getElementById(id).disabled = !enabled || mapSwitchInProgress;
+      var localizationBlocked = localizationBackend === 'universe' && !localizationReady;
+      ['send-route-button', 'enter-autonomous-button'].forEach(function(id) {
+        var button = document.getElementById(id);
+        button.disabled = !enabled || mapSwitchInProgress || localizationBlocked;
+        button.title = !enabled ? '当前为只读模式' : (localizationBlocked ? localizationError : '');
       });
-      document.getElementById('activate-map-button').disabled = !enabled || mapSwitchInProgress || !document.getElementById('generated-map-select').value;
-      if (enabled) {
+      var generateButton = document.getElementById('generate-autoware-map-button');
+      generateButton.disabled = !enabled || mapSwitchInProgress || !mapSwitchSupported;
+      generateButton.title = !mapSwitchSupported
+        ? 'Universe 使用固定的已对齐三维地图，换图需重启' : (!enabled ? '当前为只读模式' : '');
+      document.getElementById('activate-map-button').disabled = !enabled || !mapSwitchSupported || mapSwitchInProgress || !document.getElementById('generated-map-select').value;
+      if (enabled && !wasEnabled) {
         document.getElementById('runtime-status').textContent = '车辆动作已启用。';
       }
     }
@@ -1028,9 +1059,16 @@
       var services = data.services || {};
       var runtimeMap = data.runtime_map || {};
 
-      if (uiActionsEnabled !== !!data.ui_actions_enabled) {
-        setVehicleActionsEnabled(!!data.ui_actions_enabled);
-      }
+      var localization = data.localization || {};
+      localizationBackend = data.localization_backend || 'fixposition';
+      localizationReady = !!localization.ready;
+      localizationError = localization.error || '等待初始化、地图、NDT 和轮速/IMU融合';
+      mapSwitchSupported = localizationBackend !== 'universe' && data.map_switch_supported !== false;
+      setVehicleActionsEnabled(!!data.ui_actions_enabled);
+      document.getElementById('autoware-localization').textContent = '定位后端: ' +
+        (localizationBackend === 'universe' ? 'Universe (NDT / IMU / 轮速)' : 'Fixposition') +
+        (localizationReady ? ' | 已就绪' : ' | 等待定位') +
+        (localizationBackend === 'universe' && !localizationReady ? '：' + localizationError : '');
 
       document.getElementById('autoware-availability').textContent = '后端: 已连接';
       document.getElementById('autoware-mode').textContent = '运行模式: ' + (operationMode.label || 'UNKNOWN');
@@ -1050,13 +1088,15 @@
       if (runtimeMap.status === 'ok') {
         document.getElementById('runtime-map-context').textContent =
           (data.map_switch_failed ? '地图切换失败，路线已禁用 | ' : '运行地图: ') +
-          runtimeMap.output_dir + ' | origin 来源: ' + runtimeMap.origin_source;
+          runtimeMap.output_dir + ' | origin 来源: ' + runtimeMap.origin_source +
+          (localizationBackend === 'universe' ? ' | 固定三维地图，换图需重启' : '');
         scheduleResponsiveUiUpdate();
         return;
       }
 
       document.getElementById('runtime-map-context').textContent =
-        '运行地图: 未就绪，' + (runtimeMap.error || '请先生成并刷新地图');
+        '运行地图: 未就绪，' + (runtimeMap.error || (localizationBackend === 'universe'
+          ? '请用已对齐三维点云/车道地图重启' : '请先生成并刷新地图'));
       scheduleResponsiveUiUpdate();
     }
 
@@ -1066,7 +1106,9 @@
           updateAutowareStatusPanel(data);
         })
         .catch(function(error) {
+          localizationReady = false;
           setVehicleActionsEnabled(false);
+          document.getElementById('autoware-localization').textContent = '定位后端: 状态不可用';
           document.getElementById('autoware-availability').textContent =
             '后端: 连接失败 - ' + error.message;
           document.getElementById('runtime-map-context').textContent =
@@ -1395,6 +1437,7 @@
   <div id="autoware-panel" class="floating-panel panel-autoware">
     <h3>Autoware 状态</h3>
     <div id="autoware-availability">后端: N/A</div>
+    <div id="autoware-localization">定位后端: N/A</div>
     <div id="autoware-mode">运行模式: N/A</div>
     <div id="autoware-control">控制权限: N/A</div>
     <div id="autoware-transition">状态切换: N/A</div>

@@ -1,0 +1,22 @@
+/**:
+  ros__parameters:
+    general:
+      camera_model: 'zed2i'
+      grab_resolution: 'HD720'
+      grab_frame_rate: 15
+      pub_resolution: 'CUSTOM'
+      pub_downscale_factor: 2.0
+    depth:
+      depth_mode: 'NONE'
+    pos_tracking:
+      pos_tracking_enabled: false
+      publish_tf: false
+      publish_map_tf: false
+    sensors:
+      publish_imu_tf: true
+      sensors_pub_rate: 400.0
+      sensors_image_sync: false
+    object_detection:
+      od_enabled: false
+    body_tracking:
+      bt_enabled: false

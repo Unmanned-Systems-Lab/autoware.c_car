@@ -58,6 +58,15 @@
   <!-- Perception -->
   <arg name="perception_mode" default="lidar" description="select perception mode. camera_lidar_radar_fusion, camera_lidar_fusion, lidar_radar_fusion, lidar, radar"/>
   <arg name="traffic_light_recognition/use_high_accuracy_detection" default="true" description="enable to use high accuracy detection for traffic light recognition"/>
+  <arg name="localization_mode" default="fixposition"/>
+  <arg name="universe_imu_topic" default="/zed2i/zed_node/imu/data"/>
+  <arg name="universe_wheel_odometry_topic" default="/scout/wheel_odometry"/>
+  <arg name="universe_initial_pose" default="[]"/>
+  <arg name="localization_start_imu_driver" default="false"/>
+  <arg name="localization_start_wheel_odometry_driver" default="false"/>
+  <arg name="localization_wheel_can_interface" default="$(var vehicle_interface_can_interface)"/>
+  <set_env name="SCOUT_LOCALIZATION_MODE" value="$(var localization_mode)"/>
+  <set_env name="AUTOWARE_UI_POINTCLOUD_MAP_FILE" value="$(var pointcloud_map_file)"/>
   <arg name="launch_ins_driver" default="false" description="optional legacy CAN INS driver, unused by Scout"/>
   <arg name="ins_driver_param_path" default="$(find-pkg-share ins_driver_ez21)/config/driver.yaml" description="parameter file for INS driver"/>
   <arg name="ins_driver_can_interface" default="can0" description="SocketCAN interface used by the INS driver"/>
@@ -139,7 +148,18 @@
 
   <!-- Localization -->
   <group if="$(var launch_localization)">
-    <include file="$(find-pkg-share autoware_launch)/launch/components/ins_localization_component.launch.xml">
+    <include file="$(find-pkg-share autoware_launch)/launch/components/scout_localization_selector.launch.py">
+      <arg name="localization_mode" value="$(var localization_mode)"/>
+      <arg name="universe_imu_topic" value="$(var universe_imu_topic)"/>
+      <arg name="universe_wheel_odometry_topic" value="$(var universe_wheel_odometry_topic)"/>
+      <arg name="universe_initial_pose" value="$(var universe_initial_pose)"/>
+      <arg name="localization_start_imu_driver" value="$(var localization_start_imu_driver)"/>
+      <arg name="localization_start_wheel_odometry_driver" value="$(var localization_start_wheel_odometry_driver)"/>
+      <arg name="map_path" value="$(var map_path)"/>
+      <arg name="pointcloud_map_file" value="$(var pointcloud_map_file)"/>
+      <arg name="vehicle_model" value="$(var vehicle_model)"/>
+      <arg name="localization_wheel_can_interface" value="$(var localization_wheel_can_interface)"/>
+      <arg name="localization_pointcloud_container_name" value="/$(var pointcloud_container_name)"/>
       <arg name="use_sim_time" value="$(var use_sim_time)"/>
       <arg name="launch_ins_driver" value="$(var launch_ins_driver)"/>
       <arg name="ins_driver_param_path" value="$(var ins_driver_param_path)"/>

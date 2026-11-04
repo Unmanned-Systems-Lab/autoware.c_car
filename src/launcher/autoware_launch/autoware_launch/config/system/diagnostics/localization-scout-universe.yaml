@@ -1,0 +1,96 @@
+# NDT + gyro/wheel + EKF readiness. No GNSS/Fixposition dependency.
+units:
+  - path: /autoware/localization
+    type: and
+    list:
+      - { type: link, link: /autoware/localization/state }
+      - { type: link, link: /autoware/localization/topic_rate_check/transform }
+      - { type: link, link: /autoware/localization/topic_rate_check/pose_twist_fusion }
+      - { type: link, link: /autoware/localization/topic_rate_check/scout_imu }
+      - { type: link, link: /autoware/localization/topic_rate_check/scout_wheel_twist }
+      - { type: link, link: /autoware/localization/topic_rate_check/scout_deskew }
+      - { type: link, link: /autoware/localization/topic_rate_check/scout_ndt_pose }
+      - { type: link, link: /autoware/localization/scan_matching_status }
+      - { type: link, link: /autoware/localization/ndt_map_status }
+      - { type: link, link: /autoware/localization/sensor_fusion_status }
+      - { type: link, link: /autoware/localization/accuracy }
+      - { type: link, link: /autoware/localization/gyro_status }
+      - { type: link, link: /autoware/localization/deskew_status }
+
+  - path: /autoware/localization/state
+    type: diag
+    node: /adapi/node/localization
+    name: state
+    timeout: 1.0
+
+  - path: /autoware/localization/topic_rate_check/transform
+    type: diag
+    node: topic_state_monitor_transform_map_to_base_link
+    name: localization_topic_status
+    timeout: 1.0
+
+  - path: /autoware/localization/topic_rate_check/pose_twist_fusion
+    type: diag
+    node: topic_state_monitor_pose_twist_fusion_filter_pose
+    name: localization_topic_status
+    timeout: 1.0
+
+  - path: /autoware/localization/topic_rate_check/scout_imu
+    type: diag
+    node: topic_state_monitor_scout_universe_imu
+    name: localization_topic_status
+    timeout: 1.0
+
+  - path: /autoware/localization/topic_rate_check/scout_wheel_twist
+    type: diag
+    node: topic_state_monitor_scout_universe_wheel_twist
+    name: localization_topic_status
+    timeout: 1.0
+
+  - path: /autoware/localization/topic_rate_check/scout_deskew
+    type: diag
+    node: topic_state_monitor_scout_universe_deskew_pointcloud
+    name: localization_topic_status
+    timeout: 1.0
+
+  - path: /autoware/localization/topic_rate_check/scout_ndt_pose
+    type: diag
+    node: topic_state_monitor_scout_universe_ndt_pose
+    name: localization_topic_status
+    timeout: 1.0
+
+  - path: /autoware/localization/scan_matching_status
+    type: diag
+    node: ndt_scan_matcher
+    name: scan_matching_status
+    timeout: 1.0
+
+  - path: /autoware/localization/ndt_map_status
+    type: diag
+    node: ndt_scan_matcher
+    name: map_update_status
+    timeout: 3.0
+
+  - path: /autoware/localization/sensor_fusion_status
+    type: diag
+    node: localization
+    name: ekf_localizer
+    timeout: 1.0
+
+  - path: /autoware/localization/accuracy
+    type: diag
+    node: localization_error_monitor
+    name: ellipse_error_status
+    timeout: 1.0
+
+  - path: /autoware/localization/gyro_status
+    type: diag
+    node: gyro_odometer
+    name: gyro_odometer_status
+    timeout: 1.0
+
+  - path: /autoware/localization/deskew_status
+    type: diag
+    node: scout_localization_distortion_corrector
+    name: /scout_localization_distortion_corrector
+    timeout: 1.0

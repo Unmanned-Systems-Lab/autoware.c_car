@@ -1,0 +1,47 @@
+{
+  "components": [
+    {
+      "path": "src/sensor_component/external/zed-ros2-wrapper",
+      "source": "https://github.com/stereolabs/zed-ros2-wrapper",
+      "source_commit": "b19902daf0136b6e841b5e415c2d01f425411c45",
+      "version": "5.5.0",
+      "license": "Apache-2.0",
+      "notes": "Tested upstream checkout",
+      "files": 96,
+      "source_tree_sha256": "6ad4981cba5c2a3aa00ff27e90b560fab786658008682d50e6ec1dddc47e89d4"
+    },
+    {
+      "path": "src/sensor_component/external/zed_msgs",
+      "source": "https://github.com/stereolabs/zed-ros2-interfaces",
+      "source_commit": "24f8d513ac8d4145a3bb6d72258f7e030443c1d8",
+      "version": "5.5.0",
+      "license": "Apache-2.0",
+      "notes": "Messages/services match tested installed 5.5.0 definitions",
+      "files": 29,
+      "source_tree_sha256": "3028bc48b106dfc5688fb459beca4bdb35f4875417a98ae59d79f15de03f51f3"
+    },
+    {
+      "path": "src/sensor_component/external/zed_description",
+      "source": "https://github.com/stereolabs/zed-ros2-description",
+      "source_commit": "22468247c1653d08a1e213809f3e9ce76291487d",
+      "version": "0.2.0",
+      "license": "Apache-2.0",
+      "notes": "URDF matches tested installed description",
+      "files": 26,
+      "source_tree_sha256": "8963fe35166a77ca8fc86ccaa2995befd5f5e7d70fcc143567ee3aa1ca5b751e"
+    }
+  ],
+  "external_runtime": [
+    {
+      "name": "ZED SDK",
+      "version": "5.5.1",
+      "bundled": false,
+      "install_prefix": "/usr/local/zed",
+      "installer_url": "https://stereolabs.sfo2.cdn.digitaloceanspaces.com/zedsdk/5.5/ZED_SDK_Tegra_L4T36.5_v5.5.1.zstd.run",
+      "installer_sha256": "a4564d9272724e523572403a0decc33169a849161c37bd1546373a17f4588a57",
+      "reason": "Proprietary SDK is installed through official installer, not redistributed as source"
+    }
+  ],
+  "format": 1,
+  "archive_policy": "Source snapshots; nested .git* metadata and runtime/build caches excluded; licenses retained. SDK is an official system prerequisite, not mirrored."
+}

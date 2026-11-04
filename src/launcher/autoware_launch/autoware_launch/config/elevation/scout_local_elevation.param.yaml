@@ -1,0 +1,64 @@
+# Measured elevation plus a fixed 10 m initial ground prior in the local NDT map.
+# The manager estimates ground/center from the actual map and fresh pose before starting.
+# Zero bounds below are pending placeholders, never used to start a mapper.
+# Unknown prior cells retain observation_count=0; real measurements replace them.
+/elevation_mapping_node:
+  ros__parameters:
+    map_frame: map
+    corrected_map_frame: map
+    base_frame: base_link
+    initialize_frame_id:
+    - base_link
+    use_initializer_at_start: false
+    enable_drift_corrected_TF_publishing: false
+    self_filter_enabled: false
+    ray_origin_frame: rslidar
+    pointcloud_qos_reliability: best_effort
+    pointcloud_qos_depth: 2
+    subscribers:
+      lidar:
+        topic_name: /scout/elevation/points
+        data_type: pointcloud
+    publishers:
+      elevation_map_raw:
+        layers:
+        - elevation
+        - variance
+        basic_layers:
+        - elevation
+        fps: 5.0
+    resolution: 0.04
+    map_length: 10.0
+    enable_global_map: true
+    global_map_resume_from_disk: true
+    global_map_publish_unobserved_prior: true
+    global_map_async_fusion: true
+    global_map_snapshot_buffer_count: 3
+    global_map_flush_fps: 1.0
+    global_map_fusion_variance_floor: 0.0025
+    global_map_fusion_variance_ceiling: 4.0
+    global_map_outlier_sigma: 3.0
+    global_map_max_height_jump: 0.3
+    global_map_conflict_confirmations: 10
+    global_map_conflict_tolerance: 0.1
+    global_map_conflict_max_gap: 50
+    global_map_clearance_confirmations: 3
+    global_map_clearance_margin: 0.15
+    global_map_view_length_x: 30.0
+    global_map_view_length_y: 30.0
+    global_map_view_follow_robot: true
+    global_map_publish_fps: 1.0
+    enable_global_map_local_view: true
+    global_map_local_length_x: 10.0
+    global_map_local_length_y: 10.0
+    global_map_local_publish_fps: 5.0
+    global_map_local_topic: /elevation_mapping_node/elevation_map_global_local
+    enable_builtin_traversability: false
+    enable_normal_arrow_publishing: false
+    global_map_initial_elevation: 0.0
+    global_map_initial_variance: 10000.0
+    global_map_prior_bounds_enabled: true
+    global_map_prior_min_x: 0.0
+    global_map_prior_max_x: 0.0
+    global_map_prior_min_y: 0.0
+    global_map_prior_max_y: 0.0

@@ -10,3 +10,11 @@ if [ -d "$_scout_cupti" ]; then
   export LD_LIBRARY_PATH="$_scout_cupti:$LD_LIBRARY_PATH"
 fi
 unset _scout_cupti _scout_ws
+
+# Defaults for local Scout sensor/localization traffic; explicit user settings win.
+if [ -z "${RMW_IMPLEMENTATION:-}" ]; then export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp; fi
+if [ "$RMW_IMPLEMENTATION" = rmw_cyclonedds_cpp ] && [ "${CYCLONEDDS_URI+x}" != x ]; then
+  export CYCLONEDDS_URI="file://$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/config/scout_localization_cyclonedds.xml"
+fi
+export ZED_DIR="${ZED_DIR:-/usr/local/zed}"
+if [ -d "$ZED_DIR/lib" ]; then export LD_LIBRARY_PATH="$ZED_DIR/lib:${LD_LIBRARY_PATH:-}"; fi

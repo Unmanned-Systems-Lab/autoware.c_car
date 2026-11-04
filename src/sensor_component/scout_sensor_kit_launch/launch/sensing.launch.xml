@@ -1,10 +1,11 @@
 <?xml version="1.0"?>
 <launch>
   <arg name="start_drivers" default="true"/>
+  <arg name="start_fixposition_driver" default="true"/>
   <arg name="rslidar_config" default="$(find-pkg-share scout_sensor_kit_launch)/config/rslidar.yaml"/>
   <arg name="fixposition_config" default="$(find-pkg-share scout_sensor_kit_launch)/config/fixposition.yaml"/>
   <group if="$(var start_drivers)">
-    <node pkg="fixposition_driver_ros2" exec="fixposition_driver_ros2_exec" name="fixposition_driver" output="screen">
+    <node if="$(var start_fixposition_driver)" pkg="fixposition_driver_ros2" exec="fixposition_driver_ros2_exec" name="fixposition_driver" output="screen">
       <param from="$(var fixposition_config)"/>
       <param name="nav2_mode" value="false"/>
       <remap from="/fixposition/poiimu" to="/sensing/imu/imu_data"/>

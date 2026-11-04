@@ -1,0 +1,18 @@
+/scout_global_traversability:
+  ros__parameters:
+    device: cuda
+    minimum_valid_ratio: 0.7
+    classification_threshold: 0.5
+    local_length_m: 10.0
+    local_publish_hz: 2.0
+    overview_publish_hz: 0.2
+    overview_max_size: 512
+    max_model_tiles_per_sec: 2.0
+    processing_hz: 5.0
+    processing_budget_sec: 0.08
+    max_tasks_per_tick: 8
+    max_cached_tiles: 16
+    source_changes_per_poll: 64
+    pose_timeout_sec: 0.5
+    stale_result_timeout_sec: 10.0
+    publish_direction_probabilities: false

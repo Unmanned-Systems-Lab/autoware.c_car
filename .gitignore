@@ -32,3 +32,7 @@ node_modules/
 
 # Site-specific UI output; regenerate against the live Fixposition origin.
 /src/launcher/autoware_launch/ui/generated_maps/
+
+# Python build and test caches
+.pytest_cache/
+*.egg-info/
