@@ -1,0 +1,28 @@
+{
+  "center": [
+    0.0,
+    0.0
+  ],
+  "radius_m": 20.0,
+  "lane_width_m": 4.0,
+  "direction": "counterclockwise",
+  "speed_limit_kph": 10,
+  "lanelets": 12,
+  "samples_per_ring": 144,
+  "lanelet_ids": [
+    30001,
+    30002,
+    30003,
+    30004,
+    30005,
+    30006,
+    30007,
+    30008,
+    30009,
+    30010,
+    30011,
+    30012
+  ],
+  "pointcloud_points": 720,
+  "closed": true
+}
