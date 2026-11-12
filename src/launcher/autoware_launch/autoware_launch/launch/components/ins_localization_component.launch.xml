@@ -1,49 +1,53 @@
 <?xml version="1.0"?>
 <launch>
+  <!-- Empty optional overrides preserve each node's calibrated YAML values. -->
   <arg name="use_sim_time" default="false"/>
   <arg name="launch_ins_driver" default="true"/>
-  <arg name="ins_driver_param_path" default="$(find-pkg-share ins_driver_ez21)/config/driver.yaml"/>
-  <arg name="ins_driver_can_interface" default="can0"/>
+  <arg name="launch_ins_localization_bridge" default="false"/>
+  <arg name="ins_driver_param_path" default="$(find-pkg-share ins_driver_c_car)/config/driver.yaml"/>
+  <arg name="ins_driver_can_interface" default=""/>
   <arg name="map_projector_info_path" default=""/>
-  <arg name="input_odom_topic" default="/odom_ins_at_base_link"/>
+  <arg name="input_odom_topic" default=""/>
+  <arg name="input_quality_topic" default=""/>
+  <arg name="input_child_frame_id" default=""/>
   <arg name="output_base_link_odom_topic" default=""/>
-  <arg name="output_odom_topic" default="/localization/kinematic_state"/>
-  <arg name="output_accel_topic" default="/localization/acceleration"/>
-  <arg name="output_pose_topic" default="/localization/pose_twist_fusion_filter/pose"/>
-  <arg name="output_initialization_state_topic" default="/localization/initialization_state"/>
-  <arg name="output_frame_id" default="map"/>
-  <arg name="output_child_frame_id" default="base_link"/>
-  <arg name="base_link_to_ins_x" default="0.0"/>
-  <arg name="base_link_to_ins_y" default="0.0"/>
-  <arg name="base_link_to_ins_z" default="0.0"/>
-  <arg name="base_link_to_ins_roll" default="0.0"/>
-  <arg name="base_link_to_ins_pitch" default="0.0"/>
-  <arg name="base_link_to_ins_yaw" default="0.0"/>
+  <arg name="output_odom_topic" default=""/>
+  <arg name="output_accel_topic" default=""/>
+  <arg name="output_pose_topic" default=""/>
+  <arg name="output_initialization_state_topic" default=""/>
+  <arg name="output_frame_id" default=""/>
+  <arg name="output_child_frame_id" default=""/>
+  <arg name="publish_tf" default=""/>
+  <arg name="base_link_to_ins_x" default=""/>
+  <arg name="base_link_to_ins_y" default=""/>
+  <arg name="base_link_to_ins_z" default=""/>
+  <arg name="base_link_to_ins_roll" default=""/>
+  <arg name="base_link_to_ins_pitch" default=""/>
+  <arg name="base_link_to_ins_yaw" default=""/>
 
-  <group if="$(var launch_ins_driver)">
-    <include file="$(find-pkg-share ins_driver_ez21)/launch/ins_driver.launch.py">
-      <arg name="params_file" value="$(var ins_driver_param_path)"/>
-      <arg name="can_interface" value="$(var ins_driver_can_interface)"/>
-      <arg name="map_projector_info_path" value="$(var map_projector_info_path)"/>
-      <arg name="topic_name" value="$(var input_odom_topic)"/>
-    </include>
-  </group>
-
-  <node pkg="ins_driver_ez21" exec="ins_localization_bridge" name="ins_localization_bridge" output="screen">
-    <param name="use_sim_time" value="$(var use_sim_time)"/>
-    <param name="input_odom_topic" value="$(var input_odom_topic)"/>
-    <param name="output_odom_topic" value="$(var output_odom_topic)"/>
-    <param name="output_base_link_odom_topic" value="$(var output_base_link_odom_topic)"/>
-    <param name="output_accel_topic" value="$(var output_accel_topic)"/>
-    <param name="output_pose_topic" value="$(var output_pose_topic)"/>
-    <param name="output_initialization_state_topic" value="$(var output_initialization_state_topic)"/>
-    <param name="output_frame_id" value="$(var output_frame_id)"/>
-    <param name="output_child_frame_id" value="$(var output_child_frame_id)"/>
-    <param name="base_link_to_ins_x" value="$(var base_link_to_ins_x)"/>
-    <param name="base_link_to_ins_y" value="$(var base_link_to_ins_y)"/>
-    <param name="base_link_to_ins_z" value="$(var base_link_to_ins_z)"/>
-    <param name="base_link_to_ins_roll" value="$(var base_link_to_ins_roll)"/>
-    <param name="base_link_to_ins_pitch" value="$(var base_link_to_ins_pitch)"/>
-    <param name="base_link_to_ins_yaw" value="$(var base_link_to_ins_yaw)"/>
-  </node>
+  <include file="$(find-pkg-share autoware_launch)/launch/components/c_car_ins_localization.launch.py">
+    <arg name="use_sim_time" value="$(var use_sim_time)"/>
+    <arg name="launch_ins_driver" value="$(var launch_ins_driver)"/>
+    <arg name="launch_ins_localization_bridge" value="$(var launch_ins_localization_bridge)"/>
+    <arg name="ins_driver_param_path" value="$(var ins_driver_param_path)"/>
+    <arg name="ins_driver_can_interface" value="$(var ins_driver_can_interface)"/>
+    <arg name="map_projector_info_path" value="$(var map_projector_info_path)"/>
+    <arg name="input_odom_topic" value="$(var input_odom_topic)"/>
+    <arg name="input_quality_topic" value="$(var input_quality_topic)"/>
+    <arg name="input_child_frame_id" value="$(var input_child_frame_id)"/>
+    <arg name="output_base_link_odom_topic" value="$(var output_base_link_odom_topic)"/>
+    <arg name="output_odom_topic" value="$(var output_odom_topic)"/>
+    <arg name="output_accel_topic" value="$(var output_accel_topic)"/>
+    <arg name="output_pose_topic" value="$(var output_pose_topic)"/>
+    <arg name="output_initialization_state_topic" value="$(var output_initialization_state_topic)"/>
+    <arg name="output_frame_id" value="$(var output_frame_id)"/>
+    <arg name="output_child_frame_id" value="$(var output_child_frame_id)"/>
+    <arg name="publish_tf" value="$(var publish_tf)"/>
+    <arg name="base_link_to_ins_x" value="$(var base_link_to_ins_x)"/>
+    <arg name="base_link_to_ins_y" value="$(var base_link_to_ins_y)"/>
+    <arg name="base_link_to_ins_z" value="$(var base_link_to_ins_z)"/>
+    <arg name="base_link_to_ins_roll" value="$(var base_link_to_ins_roll)"/>
+    <arg name="base_link_to_ins_pitch" value="$(var base_link_to_ins_pitch)"/>
+    <arg name="base_link_to_ins_yaw" value="$(var base_link_to_ins_yaw)"/>
+  </include>
 </launch>

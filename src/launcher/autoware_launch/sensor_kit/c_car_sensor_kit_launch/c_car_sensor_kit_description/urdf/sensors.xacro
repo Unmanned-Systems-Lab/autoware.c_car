@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot name="c_car_sensor_kit" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <!-- The C-Car vehicle description contains its IMU. No extra sensors are attached. -->
+</robot>

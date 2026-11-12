@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>c_car_sensor_kit_description</name>
+  <version>0.1.0</version>
+  <description>Empty sensor-kit description for the self-contained C-Car model.</description>
+  <maintainer email="c-car@example.com">C-Car maintainers</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>xacro</exec_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

@@ -1,15 +1,245 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <launch>
-  <!-- Compatibility entry point: this checkout runs the ELE Scout hardware. -->
-  <arg name="map_path"/>
-  <arg name="rviz" default="true"/>
-  <arg name="launch_vehicle_interface" default="true"/>
-  <arg name="start_sensor_drivers" default="true"/>
-  <include file="$(find-pkg-share autoware_launch)/launch/real_scout.launch.xml">
+  <!-- Essential parameters -->
+  <arg name="map_path" default="$(find-pkg-share autoware_launch)/../../../../src/launcher/autoware_launch/ui/generated_maps/autoware_init_map" description="point cloud and lanelet2 map directory path"/>
+  <arg name="vehicle_model" default="ez21_vehicle" description="vehicle model name"/>
+  <arg name="sensor_model" default="ez21_sensor_kit" description="sensor model name used for vehicle/sensor TFs"/>
+  <arg name="data_path" default="$(env HOME)/autoware_data" description="packages data and artifacts directory path"/>
+  <arg name="pointcloud_container_name" default="pointcloud_container" description="pointcloud container name"/>
+  <arg
+    name="vehicle_param_file"
+    default="$(find-pkg-share $(var vehicle_model)_description)/config/vehicle_info.param.yaml"
+    description="vehicle info parameter file used by the M1 pointcloud preprocessor"
+  />
+
+  <!-- launch module preset -->
+  <arg
+    name="planning_module_preset"
+    default="robosense_m1_obstacle_stop_inlane_avoidance"
+    description="planning module preset"
+  />
+  <arg name="control_module_preset" default="real_vehicle_minimal" description="control module preset"/>
+  <arg
+    name="diagnostic_graph_aggregator_graph_path"
+    default="$(find-pkg-share autoware_launch)/config/system/diagnostics/autoware-real-vehicle-minimal.yaml"
+    description="diagnostic graph config"
+  />
+  <arg
+    name="component_state_monitor_topic_path"
+    default="$(find-pkg-share autoware_launch)/config/system/component_state_monitor/topics-real-vehicle-robosense-m1.yaml"
+    description="component state monitor topics for this launch"
+  />
+  <arg
+    name="operation_mode_transition_manager_param_path"
+    default="$(find-pkg-share autoware_launch)/config/control/operation_mode_transition_manager/operation_mode_transition_manager.real_vehicle_minimal.param.yaml"
+    description="operation mode transition manager params for this launch"
+  />
+
+  <!-- Vehicle / localization -->
+  <arg name="vehicle_id" default="$(env VEHICLE_ID default)" description="vehicle specific ID"/>
+  <arg
+    name="vehicle_interface_can_interface"
+    default="can0"
+    description="SocketCAN interface used by the EZ21 vehicle interface"
+  />
+  <arg name="ins_driver_param_path" default="$(find-pkg-share ins_driver_c_car)/config/driver.yaml" description="shared c_car driver and bridge calibration YAML"/>
+  <arg name="launch_ins_localization_bridge" default="false" description="enable only after c_car localization calibration"/>
+  <arg name="ins_driver_can_interface" default="" description="SocketCAN interface used by the INS driver"/>
+  <arg name="localization_map_projector_info_path" default="" description="optional map_projector_info.yaml path used as a fixed ENU origin for the INS driver"/>
+  <arg name="localization_input_odom_topic" default="" description="raw INS odometry topic before base_link compensation"/>
+  <arg name="localization_output_base_link_odom_topic" default="" description="converted INS odometry at base_link"/>
+  <arg name="localization_base_link_to_ins_x" default="" description="optional INS mounting override x in base_link [m]"/>
+  <arg name="localization_base_link_to_ins_y" default="" description="optional INS mounting override y in base_link [m]"/>
+  <arg name="localization_base_link_to_ins_z" default="" description="optional INS mounting override z in base_link [m]"/>
+  <arg name="localization_base_link_to_ins_roll" default="" description="optional INS mounting override roll in base_link [rad]"/>
+  <arg name="localization_base_link_to_ins_pitch" default="" description="optional INS mounting override pitch in base_link [rad]"/>
+  <arg name="localization_base_link_to_ins_yaw" default="" description="optional INS mounting override yaw in base_link [rad]"/>
+
+  <!-- Perception -->
+  <arg name="perception_mode" default="lidar" description="perception mode"/>
+  <arg name="use_traffic_light_recognition" default="false" description="disable traffic light recognition for lidar-only perception"/>
+  <arg
+    name="robosense_m1_config_path"
+    default="$(find-pkg-share autoware_launch)/config/sensing/robosense_m1.param.yaml"
+    description="Robosense M1 driver config"
+  />
+  <arg
+    name="m1_ground_segmentation_param_path"
+    default="$(find-pkg-share autoware_launch)/config/perception/obstacle_segmentation/ground_segmentation/ground_segmentation.robosense_m1.param.yaml"
+    description="ground segmentation params tuned for Robosense M1"
+  />
+  <arg
+    name="use_cuda_ground_segmentation"
+    default="true"
+    description="use CUDA ground segmentation for the Robosense M1 lidar pipeline"
+  />
+  <arg
+    name="m1_voxel_grid_based_euclidean_cluster_param_path"
+    default="$(find-pkg-share autoware_launch)/config/perception/object_recognition/detection/clustering/voxel_grid_based_euclidean_cluster.robosense_m1.param.yaml"
+    description="voxel-grid clustering params tuned for Robosense M1"
+  />
+  <arg
+    name="detected_objects_filter_method"
+    default="position_filter"
+    description="use position_filter instead of lanelet_filter for outdoor/generated-lane environments"
+  />
+
+  <!-- Tools -->
+  <arg name="rviz" default="true" description="launch rviz"/>
+  <arg name="rviz_config_name" default="autoware_robosense_m1.rviz" description="rviz config for the M1 launch"/>
+  <arg name="launch_ui" default="false" description="launch runtime route/HMI UI server"/>
+  <arg
+    name="launch_planning_fallback_publishers"
+    default="false"
+    description="publish fallback acceleration/occupancy inputs when upstream topics are stale"
+  />
+  <arg
+    name="launch_freespace_bypass_coordinator"
+    default="true"
+    description="switch to temporary freespace replanning when a stopped obstacle persists"
+  />
+
+  <include file="$(find-pkg-share autoware_launch)/launch/autoware.launch.xml">
+    <!-- Common -->
     <arg name="map_path" value="$(var map_path)"/>
+    <arg name="vehicle_model" value="$(var vehicle_model)"/>
+    <arg name="sensor_model" value="$(var sensor_model)"/>
+    <arg name="data_path" value="$(var data_path)"/>
+    <arg name="pointcloud_container_name" value="$(var pointcloud_container_name)"/>
+    <arg name="planning_module_preset" value="$(var planning_module_preset)"/>
+    <arg name="control_module_preset" value="$(var control_module_preset)"/>
+    <arg name="vehicle_id" value="$(var vehicle_id)"/>
+    <arg name="vehicle_interface_can_interface" value="$(var vehicle_interface_can_interface)"/>
+    <arg name="perception_mode" value="$(var perception_mode)"/>
+
+    <!-- Keep the real-vehicle planning/control stack, but use a custom single-lidar sensing + perception path -->
+    <arg name="launch_pointcloud_container" value="true"/>
+    <arg name="launch_vehicle" value="true"/>
+    <arg name="launch_vehicle_interface" value="true"/>
+    <arg name="launch_system" value="true"/>
+    <arg name="launch_system_monitor" value="false"/>
+    <arg name="diagnostic_graph_aggregator_graph_path" value="$(var diagnostic_graph_aggregator_graph_path)"/>
+    <arg name="component_state_monitor_topic_path" value="$(var component_state_monitor_topic_path)"/>
+    <arg name="launch_map" value="true"/>
+    <arg name="launch_sensing" value="false"/>
+    <arg name="launch_localization" value="true"/>
+    <arg name="launch_ins_driver" value="true"/>
+    <arg name="launch_ins_localization_bridge" value="$(var launch_ins_localization_bridge)"/>
+    <arg name="ins_driver_param_path" value="$(var ins_driver_param_path)"/>
+    <arg name="ins_driver_can_interface" value="$(var ins_driver_can_interface)"/>
+    <arg name="localization_map_projector_info_path" value="$(var localization_map_projector_info_path)"/>
+    <arg name="localization_input_odom_topic" value="$(var localization_input_odom_topic)"/>
+    <arg name="localization_output_base_link_odom_topic" value="$(var localization_output_base_link_odom_topic)"/>
+    <arg name="localization_base_link_to_ins_x" value="$(var localization_base_link_to_ins_x)"/>
+    <arg name="localization_base_link_to_ins_y" value="$(var localization_base_link_to_ins_y)"/>
+    <arg name="localization_base_link_to_ins_z" value="$(var localization_base_link_to_ins_z)"/>
+    <arg name="localization_base_link_to_ins_roll" value="$(var localization_base_link_to_ins_roll)"/>
+    <arg name="localization_base_link_to_ins_pitch" value="$(var localization_base_link_to_ins_pitch)"/>
+    <arg name="localization_base_link_to_ins_yaw" value="$(var localization_base_link_to_ins_yaw)"/>
+    <arg name="launch_perception" value="false"/>
+    <arg name="launch_planning_dummy_publishers" value="false"/>
+    <arg name="launch_planning" value="true"/>
+    <arg name="launch_control" value="true"/>
+    <arg name="operation_mode_transition_manager_param_path" value="$(var operation_mode_transition_manager_param_path)"/>
+    <arg name="launch_api" value="true"/>
+
+    <!-- Real-vehicle defaults -->
+    <arg name="system_run_mode" value="online"/>
+    <arg name="use_sim_time" value="false"/>
+    <arg name="is_simulation" value="false"/>
+    <arg name="launch_dummy_diag_publisher" value="false"/>
+
+    <!-- Tools -->
     <arg name="rviz" value="$(var rviz)"/>
-    <arg name="launch_vehicle_interface" value="$(var launch_vehicle_interface)"/>
-    <arg name="start_sensor_drivers" value="$(var start_sensor_drivers)"/>
+    <arg name="rviz_config_name" value="$(var rviz_config_name)"/>
+    <arg name="launch_ui" value="$(var launch_ui)"/>
   </include>
+
+  <!-- In this minimal real-vehicle setup, some planning inputs may be temporarily unavailable
+       (e.g., localization acceleration / occupancy grid). Publish safe fallback values only
+       when those topics are stale so trajectory generation can proceed. -->
+  <node
+    if="$(var launch_planning_fallback_publishers)"
+    pkg="autoware_launch"
+    exec="planning_fallback_publishers"
+    name="planning_fallback_publishers"
+    output="screen"
+  >
+    <param name="acceleration_topic" value="/localization/acceleration"/>
+    <param name="occupancy_grid_topic" value="/perception/occupancy_grid_map/map"/>
+    <param name="parking_occupancy_grid_topic" value="/planning/scenario_planning/parking/costmap_generator/occupancy_grid"/>
+    <param name="base_link_frame_id" value="base_link"/>
+    <param name="map_frame_id" value="map"/>
+    <param name="stale_timeout_acceleration_sec" value="0.5"/>
+    <param name="stale_timeout_occupancy_sec" value="1.0"/>
+    <param name="timer_rate_hz" value="20.0"/>
+    <param name="occupancy_resolution" value="1.0"/>
+  </node>
+
+  <!-- Robosense M1 driver -->
+  <node pkg="rslidar_sdk" exec="rslidar_sdk_node" output="screen">
+    <param name="config_path" value="$(var robosense_m1_config_path)"/>
+  </node>
+
+  <!-- The M1 driver is configured to publish an Autoware-compatible pointcloud layout.
+       Keep preprocessing minimal: remove ego-vehicle returns, then feed the filtered cloud
+       to localization/perception. -->
+  <include file="$(find-pkg-share autoware_launch)/launch/components/robosense_m1_pointcloud_preprocessor.launch.py">
+    <arg name="pointcloud_container_name" value="$(var pointcloud_container_name)"/>
+    <arg name="vehicle_param_file" value="$(var vehicle_param_file)"/>
+    <arg name="input_frame" value="base_link"/>
+    <arg name="output_frame" value="base_link"/>
+    <arg name="input_pointcloud" value="/sensing/lidar/top/pointcloud_raw_ex"/>
+    <arg name="output_pointcloud" value="/sensing/lidar/concatenated/pointcloud"/>
+    <arg name="use_intra_process" value="true"/>
+  </include>
+
+  <!-- Lidar-only perception tuned for the single-front M1 setup. -->
+  <include file="$(find-pkg-share autoware_launch)/launch/components/tier4_perception_component.launch.xml">
+    <arg name="use_sim_time" value="false"/>
+    <arg name="vehicle_model" value="$(var vehicle_model)"/>
+    <arg name="data_path" value="$(var data_path)"/>
+    <arg name="pointcloud_container_name" value="$(var pointcloud_container_name)"/>
+    <arg name="launch_pointcloud_container" value="false"/>
+    <arg name="use_empty_dynamic_object_publisher" value="false"/>
+    <arg name="use_detected_to_predicted_objects_converter" value="true"/>
+    <arg name="use_detection_by_tracker" value="false"/>
+    <arg name="use_traffic_light_recognition" value="$(var use_traffic_light_recognition)"/>
+    <arg name="lidar_detection_model" value="clustering"/>
+    <arg name="detected_objects_filter_method" value="$(var detected_objects_filter_method)"/>
+    <arg name="use_multi_channel_tracker_merger" value="false"/>
+    <arg name="use_obstacle_segmentation_time_series_filter" value="false"/>
+    <arg name="use_cuda_ground_segmentation" value="$(var use_cuda_ground_segmentation)"/>
+    <arg name="obstacle_segmentation_ground_segmentation_param_path" value="$(var m1_ground_segmentation_param_path)"/>
+    <arg name="object_recognition_detection_voxel_grid_based_euclidean_cluster_param_path" value="$(var m1_voxel_grid_based_euclidean_cluster_param_path)"/>
+  </include>
+
+  <node
+    if="$(var launch_freespace_bypass_coordinator)"
+    pkg="autoware_launch"
+    exec="freespace_bypass_coordinator"
+    name="freespace_bypass_coordinator"
+    output="screen"
+  >
+    <param name="mission_route_topic" value="/planning/mission_planning/route"/>
+    <param name="parking_route_topic" value="/planning/freespace_bypass/route"/>
+    <param name="force_parking_topic" value="/planning/freespace_bypass/force_parking"/>
+    <param name="path_topic" value="/planning/scenario_planning/lane_driving/behavior_planning/path_with_lane_id"/>
+    <param name="objects_topic" value="/perception/object_recognition/objects"/>
+    <param name="odometry_topic" value="/localization/kinematic_state"/>
+    <param name="parking_completed_topic" value="/planning/scenario_planning/parking/is_completed"/>
+    <param name="scenario_topic" value="/planning/scenario_planning/scenario"/>
+    <param name="trigger_persistence_sec" value="5.0"/>
+    <param name="stopped_velocity_mps" value="0.05"/>
+    <param name="min_forward_object_distance_m" value="1.0"/>
+    <param name="max_forward_object_distance_m" value="20.0"/>
+    <param name="object_path_lateral_margin_m" value="2.5"/>
+    <param name="obstacle_length_padding_m" value="1.0"/>
+    <param name="rejoin_margin_after_obstacle_m" value="6.0"/>
+    <param name="min_remaining_path_after_rejoin_m" value="5.0"/>
+    <param name="goal_clearance_radius_m" value="3.0"/>
+    <param name="rejoin_arrived_distance_m" value="1.0"/>
+    <param name="timer_rate_hz" value="5.0"/>
+  </node>
 </launch>
 

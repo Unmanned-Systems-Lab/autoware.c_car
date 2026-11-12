@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="launch_driver" default="true" description="Physical drivers are not configured; true fails explicitly."/>
+  <arg name="vehicle_mirror_param_file" default=""/>
+  <arg name="pointcloud_container_name" default="pointcloud_container"/>
+  <arg name="vehicle_id" default="$(env VEHICLE_ID default)"/>
+  <include file="$(find-pkg-share c_car_sensor_kit_launch)/launch/sensing.launch.py">
+    <arg name="launch_driver" value="$(var launch_driver)"/>
+  </include>
+</launch>

@@ -1,0 +1,10 @@
+ins_driver.c_car is derived from Unmanned-Systems-Lab/ins_driver.ez21,
+branch ez21_1, commit ec21f05c9ffaab53d556e44b68357e1733b43fd3.
+The original package declares the Apache License, Version 2.0.
+The c_car driver is maintained independently; the original repository is unchanged.
+
+GI5651 CAN protocol source used for implementation:
+GI5651-CAN协议说明_SQDT(1).pdf (3 pages), SHA-256:
+e19fd998bb1d1e8c538bbe325a3f79628aaa0f7a62e15e4b70275236f4c40671
+
+The protocol source and captured vehicle CAN logs are not redistributed here.

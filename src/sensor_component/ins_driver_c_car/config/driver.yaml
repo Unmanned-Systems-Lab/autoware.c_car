@@ -1,0 +1,91 @@
+ins_driver_c_car:
+  ros__parameters:
+    # SocketCAN must already be UP at the device's bitrate (observed: 500000).
+    can_interface: can0
+    socket_timeout_sec: 0.2
+    navigation_source: ins
+    field_timeout_sec: 0.2
+    max_group_skew_sec: 0.1
+    allow_missing_roll: false
+
+    # The supplied CAN PDF has no Flag code table. Populate only verified codes.
+    # Empty arrays deliberately produce NO_FIX / invalid localization quality.
+    valid_nav_flags: []
+    fixed_nav_flags: []
+    float_nav_flags: []
+
+    # These conventions are explicit assumptions until verified on this vehicle.
+    axes_verified: false
+    heading_convention: north_cw
+    euler_order: zyx
+    roll_sign: 1.0
+    pitch_sign: 1.0
+    mounting_rpy_deg: [0.0, 0.0, 0.0]
+
+    # CAN PDF says m/s^2; serial manual says g. Do not infer CAN firmware units.
+    acceleration_unit: mps2
+    acceleration_units_verified: false
+    time_source: receive
+    gps_utc_leap_seconds: -1
+    gps_rollover_weeks: 0
+    max_device_time_offset_sec: 5.0
+    time_reference_topic: /sensing/ins/time_reference
+
+    topic_name: /sensing/ins/odometry
+    frame_id: odom
+    child_frame_id: ins_link
+    quality_topic: /sensing/ins/quality
+    publish_raw_nav_sat_fix: true
+    raw_nav_sat_fix_topic: /sensing/ins/raw_nav_sat_fix
+    raw_nav_sat_fix_frame_id: ins_link
+    publish_imu: true
+    imu_topic: /sensing/imu/imu_raw
+    imu_frame_id: ins_link
+
+    # Configured uncertainty assumptions, not receiver-reported covariance.
+    orientation_covariance_diag: [1.0, 1.0, 1.0]
+    angular_velocity_covariance_diag: [0.1, 0.1, 0.1]
+    linear_acceleration_covariance_diag: [1.0, 1.0, 1.0]
+    pose_covariance_diag: [100.0, 100.0, 100.0, 1.0, 1.0, 1.0]
+    twist_covariance_diag: [10.0, 10.0, 10.0, 1.0, 1.0, 1.0]
+
+    # No coordinates from the previous vehicle are inherited.
+    map_projector_info_path: ''
+    reference_origin_active: false
+    reference_origin_latitude_deg: 0.0
+    reference_origin_longitude_deg: 0.0
+    reference_origin_altitude_m: 0.0
+    log_enabled: false
+    log_path: ~/ins_driver_c_car/logs
+    log_name: auto
+    log_name_format: '%Y%m%d-%H%M%S.txt'
+    log_format: can
+
+ins_localization_bridge:
+  ros__parameters:
+    input_odom_topic: /sensing/ins/odometry
+    input_child_frame_id: ins_link
+    input_quality_topic: /sensing/ins/quality
+    require_quality: true
+    quality_timeout_sec: 0.2
+    max_quality_skew_sec: 0.1
+    odom_timeout_sec: 0.2
+    extrinsics_verified: false
+    map_origin_verified: false
+    acceleration_covariance_diag: [25.0, 25.0, 25.0, 1.0, 1.0, 1.0]
+    min_accel_dt_sec: 0.001
+    max_accel_dt_sec: 1.0
+    output_odom_topic: /localization/kinematic_state
+    output_base_link_odom_topic: /sensing/ins/odometry_at_base_link
+    output_accel_topic: /localization/acceleration
+    output_pose_topic: /localization/pose_twist_fusion_filter/pose
+    output_initialization_state_topic: /localization/initialization_state
+    output_frame_id: map
+    output_child_frame_id: base_link
+    publish_tf: false
+    base_link_to_ins_x: 0.0
+    base_link_to_ins_y: 0.0
+    base_link_to_ins_z: 0.0
+    base_link_to_ins_roll: 0.0
+    base_link_to_ins_pitch: 0.0
+    base_link_to_ins_yaw: 0.0

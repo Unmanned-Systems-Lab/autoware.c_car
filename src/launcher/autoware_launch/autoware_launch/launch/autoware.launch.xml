@@ -2,8 +2,8 @@
 <launch>
   <!-- Essential parameters -->
   <arg name="map_path" default="$(find-pkg-share autoware_launch)/../../../../src/launcher/autoware_launch/ui/generated_maps/autoware_init_map" description="point cloud and lanelet2 map directory path"/>
-  <arg name="vehicle_model" default="scout_vehicle" description="vehicle model name"/>
-  <arg name="sensor_model" default="scout_sensor_kit" description="sensor model name"/>
+  <arg name="vehicle_model" default="ez21_vehicle" description="vehicle model name"/>
+  <arg name="sensor_model" default="ez21_sensor_kit" description="sensor model name"/>
   <arg name="pointcloud_container_name" default="pointcloud_container"/>
   <arg name="launch_pointcloud_container" default="true" description="launch shared pointcloud container"/>
   <arg name="data_path" default="$(env HOME)/autoware_data" description="packages data and artifacts directory path"/>
@@ -54,41 +54,41 @@
   <arg name="ui_host" default="127.0.0.1" description="host address for the runtime route/HMI UI server"/>
   <arg name="ui_port" default="8090" description="port for the runtime route/HMI UI server"/>
   <arg name="open_ui_index" default="false" description="open the runtime route/HMI UI in a desktop browser"/>
-  <arg name="ui_launcher" default="$(find-pkg-share autoware_launch)/../../../../src/launcher/autoware_launch/ui/start_ui_server.sh" description="launcher script for the runtime route/HMI UI server"/>
+  <arg name="ui_launcher" default="/home/nvidia/autoware.ez21/src/launcher/autoware_launch/ui/start_ui_server.sh" description="launcher script for the runtime route/HMI UI server"/>
   <!-- Perception -->
   <arg name="perception_mode" default="lidar" description="select perception mode. camera_lidar_radar_fusion, camera_lidar_fusion, lidar_radar_fusion, lidar, radar"/>
   <arg name="traffic_light_recognition/use_high_accuracy_detection" default="true" description="enable to use high accuracy detection for traffic light recognition"/>
-  <arg name="localization_mode" default="fixposition"/>
-  <arg name="universe_imu_topic" default="/zed2i/zed_node/imu/data"/>
-  <arg name="universe_wheel_odometry_topic" default="/scout/wheel_odometry"/>
-  <arg name="universe_initial_pose" default="[]"/>
-  <arg name="localization_start_imu_driver" default="false"/>
-  <arg name="localization_start_wheel_odometry_driver" default="false"/>
-  <arg name="localization_wheel_can_interface" default="$(var vehicle_interface_can_interface)"/>
-  <set_env name="SCOUT_LOCALIZATION_MODE" value="$(var localization_mode)"/>
-  <set_env name="AUTOWARE_UI_POINTCLOUD_MAP_FILE" value="$(var pointcloud_map_file)"/>
-  <arg name="launch_ins_driver" default="false" description="optional legacy CAN INS driver, unused by Scout"/>
-  <arg name="ins_driver_param_path" default="$(find-pkg-share ins_driver_ez21)/config/driver.yaml" description="parameter file for INS driver"/>
-  <arg name="ins_driver_can_interface" default="can0" description="SocketCAN interface used by the INS driver"/>
+  <arg name="launch_ins_driver" default="true" description="launch passive c_car GI5651 receiver"/>
+  <arg name="launch_ins_localization_bridge" default="false" description="enable the c_car quality-gated localization bridge"/>
+  <arg name="ins_driver_param_path" default="$(find-pkg-share ins_driver_c_car)/config/driver.yaml" description="parameter file for INS driver"/>
+  <arg name="ins_driver_can_interface" default="" description="SocketCAN interface used by the INS driver"/>
   <arg name="localization_map_projector_info_path" default="" description="optional map_projector_info.yaml path used as a fixed ENU origin for the INS driver"/>
-  <arg name="localization_input_odom_topic" default="/odom_ins_at_base_link" description="odometry topic used as localization input"/>
+  <arg name="localization_input_odom_topic" default="" description="odometry topic used as localization input"/>
+  <arg name="localization_input_quality_topic" default="" description="optional bridge quality topic override; empty preserves YAML"/>
+  <arg name="localization_input_child_frame_id" default="" description="optional bridge input child frame override; empty preserves YAML"/>
+  <arg name="localization_publish_tf" default="" description="optional bridge TF override; empty preserves YAML"/>
   <arg name="localization_output_base_link_odom_topic" default="" description="optional converted odometry topic at base_link"/>
-  <arg name="localization_output_frame_id" default="map" description="frame_id for INS-based localization outputs"/>
-  <arg name="localization_output_child_frame_id" default="base_link" description="child_frame_id for INS-based localization outputs"/>
-  <arg name="localization_base_link_to_ins_x" default="0.0" description="INS mounting x in base_link frame [m]"/>
-  <arg name="localization_base_link_to_ins_y" default="0.0" description="INS mounting y in base_link frame [m]"/>
-  <arg name="localization_base_link_to_ins_z" default="0.0" description="INS mounting z in base_link frame [m]"/>
-  <arg name="localization_base_link_to_ins_roll" default="0.0" description="INS mounting roll in base_link frame [rad]"/>
-  <arg name="localization_base_link_to_ins_pitch" default="0.0" description="INS mounting pitch in base_link frame [rad]"/>
-  <arg name="localization_base_link_to_ins_yaw" default="0.0" description="INS mounting yaw in base_link frame [rad]"/>
+  <arg name="localization_output_frame_id" default="" description="frame_id for INS-based localization outputs"/>
+  <arg name="localization_output_child_frame_id" default="" description="child_frame_id for INS-based localization outputs"/>
+  <arg name="localization_base_link_to_ins_x" default="" description="INS mounting x in base_link frame [m]"/>
+  <arg name="localization_base_link_to_ins_y" default="" description="INS mounting y in base_link frame [m]"/>
+  <arg name="localization_base_link_to_ins_z" default="" description="INS mounting z in base_link frame [m]"/>
+  <arg name="localization_base_link_to_ins_roll" default="" description="INS mounting roll in base_link frame [rad]"/>
+  <arg name="localization_base_link_to_ins_pitch" default="" description="INS mounting pitch in base_link frame [rad]"/>
+  <arg name="localization_base_link_to_ins_yaw" default="" description="INS mounting yaw in base_link frame [rad]"/>
   <!-- Planning -->
   <arg name="planning_input_objects_topic_name" default="/perception/object_recognition/objects" description="objects topic used by planning"/>
   <arg name="planning_input_pointcloud_topic_name" default="/perception/obstacle_segmentation/pointcloud" description="pointcloud topic used by planning"/>
-  <arg name="launch_planning_dummy_publishers" default="false" description="launch empty publishers for planning-required pointcloud, occupancy grid, costmap, and objects"/>
-  <arg name="planning_dummy_publishers_param_path" default="$(find-pkg-share ins_driver_ez21)/config/planning_dummy_publishers.yaml" description="parameter file for planning dummy publishers"/>
+  <arg name="launch_planning_dummy_publishers" default="false" description="retired option; an explicit true request fails with a clear error"/>
+  <arg name="planning_dummy_publishers_param_path" default="" description="retired legacy parameter; no planning dummy executable is supplied"/>
   <!-- Auto mode setting-->
   <arg name="enable_all_modules_auto_mode" default="false" description="enable all module's auto mode"/>
   <arg name="is_simulation" default="false" description="Autoware's behavior will change depending on whether this is a simulation or not."/>
+
+  <!-- Reject the retired fake-perception option before starting any modules. -->
+  <group if="$(var launch_planning_dummy_publishers)">
+    <include file="$(find-pkg-share autoware_launch)/launch/components/retired_planning_dummy.launch.py"/>
+  </group>
 
   <!-- Global parameters -->
   <group scoped="false">
@@ -108,7 +108,7 @@
 
   <!-- Start the runtime route/HMI UI early so the page is available while the rest of Autoware boots. -->
   <executable
-    cmd="bash $(var ui_launcher) $(var ui_host) $(var ui_port) $(var open_ui_index) $(var map_path)"
+    cmd="bash $(var ui_launcher) $(var ui_host) $(var ui_port) $(var open_ui_index)"
     name="autoware_runtime_ui"
     output="screen"
     if="$(var launch_ui)"
@@ -148,24 +148,17 @@
 
   <!-- Localization -->
   <group if="$(var launch_localization)">
-    <include file="$(find-pkg-share autoware_launch)/launch/components/scout_localization_selector.launch.py">
-      <arg name="localization_mode" value="$(var localization_mode)"/>
-      <arg name="universe_imu_topic" value="$(var universe_imu_topic)"/>
-      <arg name="universe_wheel_odometry_topic" value="$(var universe_wheel_odometry_topic)"/>
-      <arg name="universe_initial_pose" value="$(var universe_initial_pose)"/>
-      <arg name="localization_start_imu_driver" value="$(var localization_start_imu_driver)"/>
-      <arg name="localization_start_wheel_odometry_driver" value="$(var localization_start_wheel_odometry_driver)"/>
-      <arg name="map_path" value="$(var map_path)"/>
-      <arg name="pointcloud_map_file" value="$(var pointcloud_map_file)"/>
-      <arg name="vehicle_model" value="$(var vehicle_model)"/>
-      <arg name="localization_wheel_can_interface" value="$(var localization_wheel_can_interface)"/>
-      <arg name="localization_pointcloud_container_name" value="/$(var pointcloud_container_name)"/>
+    <include file="$(find-pkg-share autoware_launch)/launch/components/ins_localization_component.launch.xml">
       <arg name="use_sim_time" value="$(var use_sim_time)"/>
       <arg name="launch_ins_driver" value="$(var launch_ins_driver)"/>
+      <arg name="launch_ins_localization_bridge" value="$(var launch_ins_localization_bridge)"/>
       <arg name="ins_driver_param_path" value="$(var ins_driver_param_path)"/>
       <arg name="ins_driver_can_interface" value="$(var ins_driver_can_interface)"/>
       <arg name="map_projector_info_path" value="$(var localization_map_projector_info_path)"/>
       <arg name="input_odom_topic" value="$(var localization_input_odom_topic)"/>
+      <arg name="input_quality_topic" value="$(var localization_input_quality_topic)"/>
+      <arg name="input_child_frame_id" value="$(var localization_input_child_frame_id)"/>
+      <arg name="publish_tf" value="$(var localization_publish_tf)"/>
       <arg name="output_base_link_odom_topic" value="$(var localization_output_base_link_odom_topic)"/>
       <arg name="output_frame_id" value="$(var localization_output_frame_id)"/>
       <arg name="output_child_frame_id" value="$(var localization_output_child_frame_id)"/>
@@ -184,15 +177,6 @@
       <arg name="data_path" value="$(var data_path)"/>
       <arg name="pointcloud_container_name" value="$(var pointcloud_container_name)"/>
     </include>
-  </group>
-
-  <!-- Optional dummy inputs for planning -->
-  <group if="$(var launch_planning_dummy_publishers)">
-    <node pkg="ins_driver_ez21" exec="planning_dummy_publishers" name="planning_dummy_publishers" output="screen">
-      <param from="$(var planning_dummy_publishers_param_path)"/>
-      <param name="objects_topic" value="$(var planning_input_objects_topic_name)"/>
-      <param name="pointcloud_topic" value="$(var planning_input_pointcloud_topic_name)"/>
-    </node>
   </group>
 
   <!-- Planning -->

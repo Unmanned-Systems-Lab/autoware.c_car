@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <arg name="vehicle_id" default="default"/>
+  <arg name="raw_vehicle_cmd_converter_param_path" default=""/>
+  <arg name="initial_engage_state" default="false"/>
+  <arg name="vehicle_interface_can_interface" default="can0"/>
+  <include file="$(find-pkg-share c_car_vehicle_launch)/launch/vehicle_interface.launch.py"/>
+</launch>

@@ -1,0 +1,6 @@
+# Resource expected by tier4_system_launch during planning simulation.
+# This placeholder is not a physical sensor-health validation.
+/**:
+  ros__parameters:
+    required_diags:
+      dummy_diag_empty: default

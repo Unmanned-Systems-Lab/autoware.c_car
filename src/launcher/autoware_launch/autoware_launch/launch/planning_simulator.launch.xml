@@ -2,8 +2,8 @@
 <launch>
   <!-- Essential parameters -->
   <arg name="map_path" default="$(find-pkg-share autoware_launch)/../../../../src/launcher/autoware_launch/ui/generated_maps/autoware_init_map" description="point cloud and lanelet2 map directory path"/>
-  <arg name="vehicle_model" default="scout_vehicle" description="vehicle model name"/>
-  <arg name="sensor_model" default="scout_sensor_kit" description="sensor model name"/>
+  <arg name="vehicle_model" default="ez21_vehicle" description="vehicle model name"/>
+  <arg name="sensor_model" default="ez21_sensor_kit" description="sensor model name"/>
   <arg name="data_path" default="$(env HOME)/autoware_data" description="packages data and artifacts directory path"/>
 
   <!-- launch module preset -->
@@ -58,6 +58,9 @@
     <let name="launch_vehicle_interface" value="true" unless="$(var vehicle_simulation)"/>
 
     <include file="$(find-pkg-share autoware_launch)/launch/autoware.launch.xml">
+      <!-- Simulation never opens the physical INS CAN receiver. -->
+      <arg name="launch_ins_driver" value="false"/>
+      <arg name="launch_ins_localization_bridge" value="false"/>
       <!-- Common -->
       <arg name="map_path" value="$(var map_path)"/>
       <arg name="vehicle_model" value="$(var vehicle_model)"/>
@@ -90,6 +93,13 @@
     </include>
   </group>
 
+  <!-- C-Car visual joints are driven only by simulated status reports. -->
+  <group if="$(eval &quot;'$(var vehicle_model)' == 'c_car_vehicle'&quot;)">
+    <include if="$(var vehicle_simulation)" file="$(find-pkg-share c_car_vehicle_launch)/launch/visualization.launch.xml">
+      <arg name="use_sim_time" value="$(var use_sim_time)"/>
+    </include>
+  </group>
+
   <!-- Simulator -->
   <group>
     <let name="launch_dummy_perception" value="false" if="$(var scenario_simulation)"/>
@@ -118,7 +128,7 @@
 
   <node
     if="$(var launch_freespace_bypass_coordinator)"
-    pkg="ins_driver_ez21"
+    pkg="autoware_launch"
     exec="freespace_bypass_coordinator"
     name="freespace_bypass_coordinator"
     output="screen"

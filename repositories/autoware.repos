@@ -108,11 +108,11 @@ repositories:
     type: git
     url: https://github.com/Unmanned-Systems-Lab/c_car_vehicle_description.git
     version: main
-  # ins driver
-  sensor_component/ins_driver_ez21:
+  # c_car GI5651 INS driver
+  sensor_component/ins_driver_c_car:
     type: git
-    url: git@github.com:Unmanned-Systems-Lab/ins_driver.ez21.git
-    version: ez21_1
+    url: https://github.com/Unmanned-Systems-Lab/ins_driver.c_car.git
+    version: c_car
   # sensor_component
   sensor_component/external/sensor_component_description:
     type: git

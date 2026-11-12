@@ -15,10 +15,16 @@
   <exec_depend>autoware_crop_box_filter</exec_depend>
   <exec_depend>autoware_global_parameter_loader</exec_depend>
   <exec_depend>autoware_pointcloud_preprocessor</exec_depend>
-  <exec_depend>ins_driver_ez21</exec_depend>
-  <exec_depend>scout_vehicle_launch</exec_depend>
-  <exec_depend>scout_vehicle_description</exec_depend>
-  <exec_depend>scout_sensor_kit_launch</exec_depend>
+  <exec_depend>ins_driver_c_car</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>autoware_internal_planning_msgs</exec_depend>
+  <exec_depend>autoware_perception_msgs</exec_depend>
+  <exec_depend>autoware_planning_msgs</exec_depend>
   <exec_depend>python3-bson</exec_depend>
   <exec_depend>python3-tornado</exec_depend>
   <exec_depend>rviz2</exec_depend>
@@ -40,8 +46,4 @@
     <build_type>ament_cmake</build_type>
     <autoware_guideline_check file="test/autoware_guideline_check.yaml"/>
   </export>
-  <exec_depend>scout_localization_support</exec_depend>
-  <exec_depend>elevation_mapping_cupy</exec_depend>
-  <exec_depend>grid_map_rviz_plugin</exec_depend>
-  <exec_depend>scout_global_traversability</exec_depend>
 </package>
