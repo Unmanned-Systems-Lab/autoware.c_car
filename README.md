@@ -1,4 +1,20 @@
-# Autoware Scout
+# Autoware C-Car
+
+The C-Car stack uses ROS 2 Humble on Ubuntu 22.04. This branch tracks the field vehicle's launch, perception, planning, localization and CAN interface sources through [repositories/autoware.repos](repositories/autoware.repos).
+
+For a fresh workspace with Git access to the organization's private dependencies:
+
+```bash
+git clone --branch c_car https://github.com/Unmanned-Systems-Lab/autoware.c_car.git
+cd autoware.c_car
+mkdir -p workspace/src
+vcs import --recursive workspace/src < repositories/autoware.repos
+```
+
+Build from `workspace/`. The top-level `src/` is the historical source snapshot. See the [C-Car guide](README_C_CAR.md) for package checks, sensor assets and site configuration.
+
+## Historical Scout source snapshot
+
 
 Autoware Humble source snapshot adapted from EZ21 for AgileX Scout, using the
 local ELE Scout vehicle assembly, RoboSense RSHELIOS and Fixposition interfaces.

@@ -26,7 +26,7 @@ repositories:
     version: 0.12.0
   core/autoware_core:
     type: git
-    url: git@github.com:Unmanned-Systems-Lab/autoware_core.ez21.git
+    url: https://github.com/Unmanned-Systems-Lab/autoware_core.ez21.git
     version: ez21
   core/autoware_rviz_plugins:
     type: git
@@ -35,8 +35,8 @@ repositories:
   # universe
   universe/autoware_universe:
     type: git
-    url: git@github.com:Unmanned-Systems-Lab/autoware_universe.ez21.git
-    version: ez21
+    url: https://github.com/Unmanned-Systems-Lab/autoware_universe.ez21.git
+    version: c_car
   universe/external/tier4_autoware_msgs:
     type: git
     url: https://github.com/tier4/tier4_autoware_msgs.git
@@ -124,7 +124,7 @@ repositories:
     version: v0.3.2.2
   sensor_component/external/robosense:
     type: git
-    url: git@github.com:Unmanned-Systems-Lab/robosense_driver_ros2.git
+    url: https://github.com/Unmanned-Systems-Lab/robosense_driver_ros2.git
     version: ez21_1
   sensor_component/external/sync_tooling_msgs:
     type: git

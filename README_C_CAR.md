@@ -1,18 +1,37 @@
-# c_car planning simulation
+# C-Car source workspace
 
-This `autoware.c_car` `c_car` branch provides the c_car overlay, ring-map simulation helper and independent GI5651 driver. The earlier EZ21 driver remains a separate package; c_car launch configuration uses `ins_driver_c_car`.
+Use the [C-Car manifest](repositories/autoware.repos) from this repository's `c_car` branch. It follows the C-Car component branches and pins third-party dependency versions for ROS 2 Humble. The source snapshot in the top-level `src/` and `SOURCE_VERSIONS.repos` describe an earlier workspace.
 
-The three c_car repositories in `repositories/autoware.repos` are:
+## Import and check the sources
 
-| Repository | Ref | Manifest path |
+On Ubuntu 22.04 with Git, vcstool and read access to the organization's private repositories:
+
+```bash
+git clone --branch c_car https://github.com/Unmanned-Systems-Lab/autoware.c_car.git
+cd autoware.c_car
+mkdir -p workspace/src
+vcs import --recursive workspace/src < repositories/autoware.repos
+cd workspace
+colcon list --base-paths src --names-only | grep -E '^(c_car_|ins_driver_c_car$)'
+git -C src/launcher/autoware_launch log -1 --oneline
+git -C src/universe/autoware_universe log -1 --oneline
+```
+
+Start with an empty `workspace/src`. Keep build, install and log outputs under `workspace/` and run colcon there. On a new machine install the project's Humble development environment with `setup-dev-env.sh`. A source import does not start any ROS nodes. Capture the exact revisions of an imported workspace with `vcs export --exact src` from `workspace/`.
+
+| Source repository | Branch | C-Car components |
 | --- | --- | --- |
-| `Unmanned-Systems-Lab/autoware_launch.c_car` | `c_car` | `launcher/autoware_launch` |
-| `Unmanned-Systems-Lab/c_car_vehicle_description` | `main` | `vehicle/c_car_vehicle_description` |
-| `Unmanned-Systems-Lab/ins_driver.c_car` | `c_car` | `sensor_component/ins_driver_c_car` |
+| `Unmanned-Systems-Lab/autoware_launch.c_car` | `c_car` | Sensor kit, ground filtering, perception and fusion launch, UI and map generation, PCFA preview and CAN vehicle interface |
+| `Unmanned-Systems-Lab/autoware_universe.ez21` | `c_car` | Autoware perception changes including YOLOX ROI thresholds and lidar processing |
+| `Unmanned-Systems-Lab/ins_driver.c_car` | `c_car` | GI5651 CAN decoder, navigation quality and localization bridge |
+| `Unmanned-Systems-Lab/c_car_vehicle_description` | `main` | Vehicle model and motion limits |
 
-Private repositories require normal GitHub Git access. The GitHub connection in chat does not configure credentials on the remote machine. Import the manifest into a new, empty source workspace; do not import over the source snapshot or an existing checkout with local changes.
+### New-machine inputs
 
-The checked-in source snapshot also contains `src/sensor_component/ins_driver_c_car` and the matching c_car launch resources, so a source-snapshot build can resolve the new package. `SOURCE_VERSIONS.repos` remains the historical provenance record. Use `repositories/autoware.repos` for the current c_car dependency references; its new driver entry is `https://github.com/Unmanned-Systems-Lab/ins_driver.c_car.git`, branch `c_car`, at the independent path `sensor_component/ins_driver_c_car`.
+* **Perception.** Read the launcher [C-Car guide](https://github.com/Unmanned-Systems-Lab/autoware_launch.c_car/blob/c_car/README_C_CAR.md) for the sensor topics, calibration override and stationary preview. The private launcher includes the TIMOO ROS 2 driver and its matching SDK source. The live driver requires libpcap and a network interface configured for the lidar. Set the Sony camera stream URL locally. The Autoware setup artifacts supply the YOLOX ONNX model and labels; the guide lists the matching checksums. Check the lidar-to-vehicle mounting pose before relying on measured distances.
+* **Localization and maps.** Set the map origin and verified installations for the target vehicle locally. The distributed INS configuration uses an inactive reference origin. Site maps, credentials and live recordings are separate deployment inputs.
+* **CAN vehicle interface.** The formal interface defaults to receive-only. See the [vehicle interface bench manual](https://github.com/Unmanned-Systems-Lab/autoware_launch.c_car/blob/c_car/vehicle/c_car_vehicle_launch/c_car_vehicle_launch/docs/CAN_INTERFACE_BENCH.md) for a manually selected bench session.
+* **Navigation preview.** The C-Car avoidance packages are distributed with the private launcher. The field PCFA preview uses a 7 m planning radius; the vehicle motion profile specifies 10 m. The preview setting does not certify a physical minimum turning radius.
 
 ## Existing-base overlay
 
@@ -62,7 +81,7 @@ ros2 launch autoware_launch ins_localization_component.launch.xml \
 
 Both nodes load their sections from that file. Empty optional launch overrides preserve the YAML values, including measured mounting parameters and quality settings. The main `autoware.launch.xml` forwards the same `ins_driver_param_path` and `launch_ins_localization_bridge` arguments. The map UI uses the new `ins_driver_c_car` node and configuration keys; saving a reference origin preserves the other driver settings and does not confirm a navigation Flag, units, or axes.
 
-The supplied default Flag lists are empty, `axes_verified=false`, and `acceleration_units_verified=false`. Raw GNSS and IMU can be observed, but this default configuration reports `NO_FIX` and does not produce trusted odometry. Configure only verified device Flag values and measured coordinate conventions. Acceleration units and GPS-to-UTC timing are explicit driver options; neither is inferred from receiving frames. Unknown IMU quantities remain marked unknown.
+The driver accepts GI5651 navigation status `0x4B` or `0x5B` for the navigation-quality check. Fresh data, axle and IMU conventions, the INS mounting transform and the map alignment have separate checks. Configure the reference origin for the current site, verify the mounting parameters and use the driver's diagnostics to confirm which outputs are valid.
 
 ```bash
 ros2 topic echo /sensing/ins/quality --once

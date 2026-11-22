@@ -36,3 +36,6 @@ node_modules/
 # Python build and test caches
 .pytest_cache/
 *.egg-info/
+
+# Workspace imported from repositories/autoware.repos.
+/workspace/
